@@ -1,6 +1,5 @@
-# 📢 Team Discord Announcement: Day 1 Foundation Launch
+# 📢 Team Announcement: Day 1 Foundation Launch
 
-*(Copy and paste this message into your team's Discord / Slack channel)*
 
 ---
 
