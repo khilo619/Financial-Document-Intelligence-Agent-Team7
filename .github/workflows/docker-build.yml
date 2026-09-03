@@ -1,0 +1,41 @@
+name: Cloud Docker Build Verification
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "services/**"
+      - "shared/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-build.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "services/**"
+      - "shared/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-build.yml"
+
+jobs:
+  build-containers:
+    name: Build & Validate All Microservices in Cloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx (High Performance Cloud Builder)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare Local Environment File for Compose
+        run: |
+          cp .env.example .env
+
+      - name: Validate Docker Compose Configuration Syntax
+        run: |
+          docker compose config
+
+      - name: Parallel Cloud Build of All Service Images
+        run: |
+          docker compose build --parallel

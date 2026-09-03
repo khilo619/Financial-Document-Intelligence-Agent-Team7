@@ -1,0 +1,229 @@
+version: "3.8"
+
+# ==============================================================================
+# PROJECT LEDGER: Multi-Service Orchestration Cluster
+# System: Financial Document Intelligence RAG Agent (MIA Team 7)
+# 
+# One-command startup:
+#   docker compose up -d --build
+# ==============================================================================
+
+networks:
+  ledger-network:
+    driver: bridge
+    name: ledger-network
+
+volumes:
+  qdrant_data:
+    name: ledger_qdrant_data
+
+services:
+  # ----------------------------------------------------------------------------
+  # 0. Infrastructure: Vector Database (Qdrant)
+  # ----------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ledger-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 1. Answer Validator API (Omar - Member 4)
+  # [Port 8005] Strict schema gatekeeper and deterministic arithmetic engine
+  # ----------------------------------------------------------------------------
+  answer-validator-api:
+    build:
+      context: .
+      dockerfile: services/answer_validator_api/Dockerfile
+    container_name: ledger-answer-validator-api
+    restart: unless-stopped
+    ports:
+      - "${ANSWER_VALIDATOR_PORT:-8005}:8005"
+    env_file:
+      - .env
+    environment:
+      - ANSWER_VALIDATOR_PORT=8005
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. Document Processor API (Zeina - Member 1)
+  # [Port 8002] Deep-learning layout OCR, table extraction, and chunking
+  # ----------------------------------------------------------------------------
+  doc-processor-api:
+    build:
+      context: .
+      dockerfile: services/doc_processor_api/Dockerfile
+    container_name: ledger-doc-processor-api
+    restart: unless-stopped
+    ports:
+      - "${DOC_PROCESSOR_PORT:-8002}:8002"
+    env_file:
+      - .env
+    environment:
+      - DOC_PROCESSOR_PORT=8002
+    networks:
+      - ledger-network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. Retrieval API (Salma - Member 2)
+  # [Port 8003] Hybrid dense (Qdrant) + sparse (BM25) search & cross-encoder
+  # ----------------------------------------------------------------------------
+  retrieval-api:
+    build:
+      context: .
+      dockerfile: services/retrieval_api/Dockerfile
+    container_name: ledger-retrieval-api
+    restart: unless-stopped
+    ports:
+      - "${RETRIEVAL_PORT:-8003}:8003"
+    env_file:
+      - .env
+    environment:
+      - RETRIEVAL_PORT=8003
+      - QDRANT_HOST=qdrant
+    networks:
+      - ledger-network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 4. Agent Service (Youssef - Member 3)
+  # [Port 8004] LangGraph cyclic reasoning brain & discrete calculation routing
+  # ----------------------------------------------------------------------------
+  agent-service:
+    build:
+      context: .
+      dockerfile: services/agent_service/Dockerfile
+    container_name: ledger-agent-service
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-8004}:8004"
+    env_file:
+      - .env
+    environment:
+      - AGENT_PORT=8004
+      - RETRIEVAL_HOST=retrieval-api
+      - ANSWER_VALIDATOR_HOST=answer-validator-api
+    networks:
+      - ledger-network
+    depends_on:
+      retrieval-api:
+        condition: service_healthy
+      answer-validator-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 5. Orchestrator API (Ahmed - Member 6 / Khaled starter)
+  # [Port 8001] Central API Gateway coordinating user requests
+  # ----------------------------------------------------------------------------
+  orchestrator-api:
+    build:
+      context: .
+      dockerfile: services/orchestrator_api/Dockerfile
+    container_name: ledger-orchestrator-api
+    restart: unless-stopped
+    ports:
+      - "${ORCHESTRATOR_PORT:-8001}:8001"
+    env_file:
+      - .env
+    environment:
+      - ORCHESTRATOR_PORT=8001
+      - AGENT_HOST=agent-service
+      - ANSWER_VALIDATOR_HOST=answer-validator-api
+      - RETRIEVAL_HOST=retrieval-api
+    networks:
+      - ledger-network
+    depends_on:
+      agent-service:
+        condition: service_healthy
+      answer-validator-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 6. Evaluation Service (Khaled - Member 5 / Evaluation & MLOps Lead)
+  # [Port 8006] Automated benchmark harness & Langfuse observability
+  # ----------------------------------------------------------------------------
+  eval-service:
+    build:
+      context: .
+      dockerfile: services/eval_service/Dockerfile
+    container_name: ledger-eval-service
+    restart: unless-stopped
+    ports:
+      - "${EVAL_PORT:-8006}:8006"
+    env_file:
+      - .env
+    environment:
+      - EVAL_PORT=8006
+      - ORCHESTRATOR_HOST=orchestrator-api
+    networks:
+      - ledger-network
+    depends_on:
+      orchestrator-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 7. UI Service (Ahmed - Member 6)
+  # [Port 8000] Gradio User Interface (Chat + Evidence + Dashboard)
+  # ----------------------------------------------------------------------------
+  ui-service:
+    build:
+      context: .
+      dockerfile: services/ui_service/Dockerfile
+    container_name: ledger-ui-service
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - UI_PORT=8000
+      - ORCHESTRATOR_HOST=orchestrator-api
+    networks:
+      - ledger-network
+    depends_on:
+      orchestrator-api:
+        condition: service_healthy
