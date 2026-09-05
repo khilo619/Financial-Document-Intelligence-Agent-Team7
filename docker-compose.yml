@@ -3,7 +3,7 @@ version: "3.8"
 # ==============================================================================
 # PROJECT LEDGER: Multi-Service Orchestration Cluster
 # System: Financial Document Intelligence RAG Agent (MIA Team 7)
-# 
+#
 # One-command startup:
 #   docker compose up -d --build
 # ==============================================================================
@@ -16,6 +16,9 @@ networks:
 volumes:
   qdrant_data:
     name: ledger_qdrant_data
+
+  huggingface_cache:
+    name: ledger_huggingface_cache
 
 services:
   # ----------------------------------------------------------------------------
@@ -103,6 +106,8 @@ services:
     environment:
       - RETRIEVAL_PORT=8003
       - QDRANT_HOST=qdrant
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
     networks:
       - ledger-network
     depends_on:
