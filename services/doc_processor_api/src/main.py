@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from shared.config import ServiceName
 from shared.models import DocumentBlock, ProcessPdfRequest, ProcessPdfResponse
-
+from services.doc_processor_api.src.ocr import process_pdfs_to_custom_schema
 logging.basicConfig(
     level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
 )
@@ -40,7 +40,7 @@ def process_pdf(request: ProcessPdfRequest):
     start_time = time.time()
     doc_id = request.document_id or request.pdf_path.split("/")[-1]
     logger.info("Processing PDF document: %s", doc_id)
-
+    sample_blocks =process_pdfs_to_custom_schema(request.pdf_path, doc_id)
     # Day 1 Scaffold: Return dummy layout-aware blocks conforming to DocumentBlock schema
     sample_blocks = [
         DocumentBlock(
