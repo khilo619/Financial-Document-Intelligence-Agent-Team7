@@ -1,17 +1,24 @@
-from sentence_transformers import CrossEncoder
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 
 class Reranker:
     """
-    Reranks retrieved documents using a Cross-Encoder model.
+    Reranks retrieved documents using LangChain's
+    Hugging Face Cross-Encoder integration.
     """
 
     def __init__(
         self,
         model_name: str = "BAAI/bge-reranker-large",
     ):
-        # Load the Cross-Encoder reranking model.
-        self.model = CrossEncoder(model_name)
+        # Load the Cross-Encoder reranking model
+        # through LangChain's Hugging Face integration.
+        self.model = HuggingFaceCrossEncoder(
+            model_name=model_name,
+            model_kwargs={
+                "device": "cpu",
+            },
+        )
 
     def rerank(
         self,
@@ -38,12 +45,12 @@ class Reranker:
 
         # Create query-document pairs for the Cross-Encoder.
         pairs = [
-            [query, result.get("content", "")]
+            (query, result.get("content", ""))
             for result in results
         ]
 
-        # Calculate relevance scores for all query-document pairs.
-        scores = self.model.predict(pairs)
+        # Calculate relevance scores.
+        scores = self.model.score(pairs)
 
         # Attach the Cross-Encoder score to each result.
         reranked_results = []

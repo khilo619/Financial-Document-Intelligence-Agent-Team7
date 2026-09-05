@@ -19,13 +19,10 @@ class BM25Engine:
         into one text string for BM25 indexing.
         """
 
-        # Start with the main document content.
         parts = [
             document.get("content", ""),
         ]
 
-        # Add document-level metadata that may be important
-        # for exact lexical matching.
         metadata = document.get("metadata", {})
 
         parts.extend(
@@ -37,7 +34,6 @@ class BM25Engine:
             ]
         )
 
-        # Combine all searchable fields into one text string.
         return " ".join(parts)
 
     def index_documents(self, documents: list[dict]):
@@ -48,56 +44,100 @@ class BM25Engine:
             documents: List of dictionaries containing document information.
         """
 
-        # Store the original document blocks.
         self.documents = documents
 
-        # Build searchable text using both content and metadata.
         texts = [
             self._build_search_text(document)
             for document in documents
         ]
 
-        # Tokenize each document using simple whitespace tokenization.
         tokenized_documents = [
             text.lower().split()
             for text in texts
         ]
 
-        # Build the BM25 index.
         self.bm25 = BM25Okapi(tokenized_documents)
 
-    def search(self, query: str, top_k: int = 5):
+    def _matches_filters(
+        self,
+        document: dict,
+        filters: dict | None,
+    ) -> bool:
+        """
+        Check whether a document matches the requested filters.
+
+        Supported fields:
+            - document_id
+            - page
+            - content_type
+            - company
+            - year
+            - section
+
+        Filters use exact matching.
+        """
+
+        # No filters means every document is allowed.
+        if not filters:
+            return True
+
+        metadata = document.get("metadata", {})
+
+        for key, expected_value in filters.items():
+
+            # Get the actual value from either the document itself
+            # or its metadata.
+            if key in document:
+                actual_value = document.get(key)
+            else:
+                actual_value = metadata.get(key)
+
+            # Normalize values to strings for flexible comparison.
+            if str(actual_value).lower() != str(expected_value).lower():
+                return False
+
+        return True
+
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: dict | None = None,
+    ):
         """
         Search the BM25 index using a text query.
 
         Args:
             query: User search query.
             top_k: Number of results to return.
+            filters: Optional metadata/document filters.
 
         Returns:
             Ranked BM25 search results.
         """
 
-        # Make sure the index has been created.
         if self.bm25 is None:
             raise RuntimeError("BM25 index has not been initialized.")
 
-        # Tokenize the query using the same method used for documents.
         tokenized_query = query.lower().split()
 
-        # Calculate BM25 relevance scores.
+        # Calculate BM25 relevance scores for all documents.
         scores = self.bm25.get_scores(tokenized_query)
 
-        # Sort document indices by descending BM25 score.
+        # Keep only documents matching the requested filters.
+        filtered_indices = [
+            index
+            for index, document in enumerate(self.documents)
+            if self._matches_filters(document, filters)
+        ]
+
+        # Sort only the allowed documents by BM25 score.
         ranked_indices = sorted(
-            range(len(scores)),
+            filtered_indices,
             key=lambda index: scores[index],
             reverse=True,
         )
 
-        # Return the top-k documents in a standardized format.
-        # This format matches the Qdrant search output
-        # and can later be passed to RRF.
         results = []
 
         for index in ranked_indices[:top_k]:

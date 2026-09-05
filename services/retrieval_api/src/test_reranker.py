@@ -1,8 +1,7 @@
 from src.reranker import Reranker
 
 
-def main():
-    # Example candidates produced by the RRF stage.
+def test_reranker():
     results = [
         {
             "chunk_id": "test-cts-2019-001",
@@ -35,26 +34,46 @@ def main():
 
     query = "Finished goods balance for CTS in 2019"
 
-    # Initialize the Cross-Encoder reranker.
     reranker = Reranker()
 
-    # Rerank the candidate documents.
     reranked_results = reranker.rerank(
         query=query,
         results=results,
         top_n=3,
     )
 
-    print("\n===== CROSS-ENCODER RERANKING =====")
+    assert len(reranked_results) == 3
 
-    for rank, result in enumerate(reranked_results, start=1):
-        print(
-            f"Rank {rank} | "
-            f"Chunk: {result['chunk_id']} | "
-            f"RRF Score: {result['rrf_score']:.6f} | "
-            f"Rerank Score: {result['rerank_score']:.6f}"
+    for result in reranked_results:
+        assert "rerank_score" in result
+        assert isinstance(
+            result["rerank_score"],
+            float,
         )
 
+    scores = [
+        result["rerank_score"]
+        for result in reranked_results
+    ]
 
-if __name__ == "__main__":
-    main()
+    assert scores == sorted(
+        scores,
+        reverse=True,
+    )
+
+    assert all(
+        "chunk_id" in result
+        for result in reranked_results
+    )
+
+    assert all(
+        "content" in result
+        for result in reranked_results
+    )
+
+    assert len(
+        {
+            result["chunk_id"]
+            for result in reranked_results
+        }
+    ) == 3

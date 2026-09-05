@@ -3,12 +3,11 @@ from src.qdrant_store import QdrantStore
 from src.rrf_fusion import RRFFusion
 
 
-def main():
-    # The query used by both retrieval systems.
+def test_hybrid_retrieval():
     query = "Finished Goods"
 
     # ---------------------------------------------------------
-    # 1. Dense retrieval using Qdrant
+    # Dense retrieval
     # ---------------------------------------------------------
 
     qdrant = QdrantStore()
@@ -18,34 +17,36 @@ def main():
         top_k=3,
     )
 
-    print("\n===== DENSE SEARCH (Qdrant) =====")
-
-    for rank, result in enumerate(dense_results, start=1):
-        print(
-            f"Rank {rank} | "
-            f"Chunk: {result['chunk_id']} | "
-            f"Score: {result['score']:.6f}"
-        )
+    assert isinstance(dense_results, list)
 
     # ---------------------------------------------------------
-    # 2. Sparse retrieval using BM25
+    # Sparse retrieval
     # ---------------------------------------------------------
 
     documents = [
         {
             "chunk_id": "test-cts-2019-001",
             "document_id": "cts-corporation_2019.pdf",
-            "content": "| Category | 2019 | 2018 |\n| Finished Goods | 9,447 | 8,912 |",
+            "content": (
+                "| Category | 2019 | 2018 |\n"
+                "| Finished Goods | 9,447 | 8,912 |"
+            ),
         },
         {
             "chunk_id": "test-jabil-2019-001",
             "document_id": "jabil-circuit-inc_2019.pdf",
-            "content": "| Category | 2019 | 2018 |\n| Finished Goods | 314,258 | 289,114 |",
+            "content": (
+                "| Category | 2019 | 2018 |\n"
+                "| Finished Goods | 314,258 | 289,114 |"
+            ),
         },
         {
             "chunk_id": "test-cts-revenue-2019",
             "document_id": "cts-corporation_2019.pdf",
-            "content": "| Revenue | 2019 | 2018 |\n| Net Sales | 1,000 | 950 |",
+            "content": (
+                "| Revenue | 2019 | 2018 |\n"
+                "| Net Sales | 1,000 | 950 |"
+            ),
         },
     ]
 
@@ -58,17 +59,11 @@ def main():
         top_k=3,
     )
 
-    print("\n===== SPARSE SEARCH (BM25) =====")
-
-    for rank, result in enumerate(sparse_results, start=1):
-        print(
-            f"Rank {rank} | "
-            f"Chunk: {result['chunk_id']} | "
-            f"Score: {result['score']:.6f}"
-        )
+    assert isinstance(sparse_results, list)
+    assert len(sparse_results) > 0
 
     # ---------------------------------------------------------
-    # 3. Reciprocal Rank Fusion
+    # RRF fusion
     # ---------------------------------------------------------
 
     rrf = RRFFusion(k=60)
@@ -80,15 +75,20 @@ def main():
         ]
     )
 
-    print("\n===== RRF FUSION =====")
+    assert isinstance(fused_results, list)
+    assert len(fused_results) > 0
 
-    for rank, result in enumerate(fused_results, start=1):
-        print(
-            f"Rank {rank} | "
-            f"Chunk: {result['chunk_id']} | "
-            f"RRF Score: {result['rrf_score']:.6f}"
-        )
+    for result in fused_results:
+        assert "chunk_id" in result
+        assert "rrf_score" in result
 
+    # RRF output should be sorted by score.
+    scores = [
+        result["rrf_score"]
+        for result in fused_results
+    ]
 
-if __name__ == "__main__":
-    main()
+    assert scores == sorted(
+        scores,
+        reverse=True,
+    )

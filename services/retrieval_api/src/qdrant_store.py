@@ -2,7 +2,14 @@ import os
 import uuid
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 from shared.models import DocumentBlock
 
@@ -39,6 +46,10 @@ class QdrantStore:
         # Create the collection if it does not already exist.
         self._ensure_collection()
 
+    # ---------------------------------------------------------
+    # Collection initialization
+    # ---------------------------------------------------------
+
     def _ensure_collection(self):
         """
         Create the Qdrant collection if it does not already exist.
@@ -63,6 +74,10 @@ class QdrantStore:
                 ),
             )
 
+    # ---------------------------------------------------------
+    # Indexing
+    # ---------------------------------------------------------
+
     def index_block(self, block: DocumentBlock):
         """
         Convert one DocumentBlock into an embedding
@@ -85,7 +100,8 @@ class QdrantStore:
         )
 
         # Store the original document information as Qdrant payload.
-        # This metadata will be returned when a matching vector is retrieved.
+        # Metadata such as company, year, and section
+        # remains inside the metadata object.
         payload = {
             "chunk_id": block.block_id,
             "document_id": block.document_id,
@@ -111,28 +127,132 @@ class QdrantStore:
 
         return point_id
 
-    def search(self, query: str, top_k: int = 5):
+    # ---------------------------------------------------------
+    # Search
+    # ---------------------------------------------------------
+
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: dict | None = None,
+    ):
         """
         Search Qdrant for the most semantically similar document blocks.
+
+        Args:
+            query:
+                User search query.
+
+            top_k:
+                Number of results to return.
+
+            filters:
+                Optional filters.
+
+                Supported fields:
+                    - document_id
+                    - page
+                    - content_type
+                    - company
+                    - year
+                    - section
+
+                Examples:
+                    {"content_type": "table"}
+
+                    {"company": "CTS Corporation"}
+
+                    {"year": 2019}
+
+                    {"company": "CTS Corporation", "year": 2019}
+
+                    {"content_type": "table", "year": 2019}
         """
 
-        # Convert the search query into a dense embedding.
+        # -----------------------------------------------------
+        # 1. Convert query into a dense embedding
+        # -----------------------------------------------------
+
         query_vector = self.embedder.encode(query)
 
-        # Search the collection using cosine similarity.
+
+        # -----------------------------------------------------
+        # 2. Build Qdrant filters
+        # -----------------------------------------------------
+
+        query_filter = None
+
+        if filters:
+
+            conditions = []
+
+            for key, value in filters.items():
+
+                # Fields stored directly in the Qdrant payload.
+                if key in {
+                    "document_id",
+                    "page",
+                    "content_type",
+                }:
+
+                    conditions.append(
+                        FieldCondition(
+                            key=key,
+                            match=MatchValue(
+                                value=value
+                            ),
+                        )
+                    )
+
+                # Fields stored inside the metadata object.
+                elif key in {
+                    "company",
+                    "year",
+                    "section",
+                }:
+
+                    conditions.append(
+                        FieldCondition(
+                            key=f"metadata.{key}",
+                            match=MatchValue(
+                                value=value
+                            ),
+                        )
+                    )
+
+            # Create the final Qdrant filter.
+            #
+            # `must` means that ALL filter conditions
+            # have to be satisfied.
+            if conditions:
+                query_filter = Filter(
+                    must=conditions
+                )
+
+
+        # -----------------------------------------------------
+        # 3. Dense semantic search
+        # -----------------------------------------------------
+
         search_result = self.client.query_points(
             collection_name=self.COLLECTION_NAME,
             query=query_vector,
             limit=top_k,
+            query_filter=query_filter,
             with_payload=True,
             with_vectors=False,
         )
 
-        # Convert Qdrant results into a standardized dictionary format.
-        # This format can be shared with BM25 and later passed to RRF.
+
+        # -----------------------------------------------------
+        # 4. Convert Qdrant results into standardized format
+        # -----------------------------------------------------
+
         results = []
 
         for point in search_result.points:
+
             payload = point.payload or {}
 
             results.append(
@@ -140,12 +260,69 @@ class QdrantStore:
                     "chunk_id": payload.get("chunk_id"),
                     "document_id": payload.get("document_id"),
                     "page": payload.get("page"),
-                    "content": payload.get("content", ""),
-                    "content_type": payload.get("content_type", "text"),
+                    "content": payload.get(
+                        "content",
+                        "",
+                    ),
+                    "content_type": payload.get(
+                        "content_type",
+                        "text",
+                    ),
                     "bbox": payload.get("bbox"),
-                    "metadata": payload.get("metadata", {}),
+                    "metadata": payload.get(
+                        "metadata",
+                        {},
+                    ),
                     "score": float(point.score),
                 }
             )
 
         return results
+
+    # ---------------------------------------------------------
+    # Retrieve all documents
+    # ---------------------------------------------------------
+
+    def get_all_documents(self):
+        """
+        Retrieve all indexed documents from Qdrant.
+
+        This is used to build the BM25 sparse search index.
+        """
+
+        # Retrieve all points stored in the collection.
+        points, _ = self.client.scroll(
+            collection_name=self.COLLECTION_NAME,
+            limit=10000,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        documents = []
+
+        for point in points:
+
+            payload = point.payload or {}
+
+            documents.append(
+                {
+                    "chunk_id": payload.get("chunk_id"),
+                    "document_id": payload.get("document_id"),
+                    "page": payload.get("page"),
+                    "content": payload.get(
+                        "content",
+                        "",
+                    ),
+                    "content_type": payload.get(
+                        "content_type",
+                        "text",
+                    ),
+                    "bbox": payload.get("bbox"),
+                    "metadata": payload.get(
+                        "metadata",
+                        {},
+                    ),
+                }
+            )
+
+        return documents
