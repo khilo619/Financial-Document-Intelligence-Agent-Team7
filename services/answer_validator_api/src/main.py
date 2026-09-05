@@ -23,6 +23,19 @@ app = FastAPI(
 )
 
 
+def _clean_pydantic_error(exc: ValidationError) -> str:
+    """Convert Pydantic's verbose error into a short, spec-style message."""
+    first = exc.errors()[0]
+    field = first["loc"][-1] if first["loc"] else "field"
+    err_type = first["type"]
+
+    if err_type == "missing":
+        return f"Missing required key '{field}'"
+    if "type" in err_type:  # e.g. int_type, string_type, float_type
+        return f"Invalid type for key '{field}'"
+    return first["msg"]  # fallback to Pydantic's own short message
+
+
 @app.get("/health")
 def health_check():
     return {
@@ -41,6 +54,8 @@ def validate_answer(request: ValidationRequest):
     raw_payload = request.answer
     a_type = raw_payload.get("answer_type", "unknown")
 
+
+
     try:
         validated_answer = StrictAnswer(**raw_payload)
         evidence_dicts = [e.model_dump() for e in validated_answer.evidence]
@@ -55,7 +70,7 @@ def validate_answer(request: ValidationRequest):
             error=None,
             log_message=log_msg,
         )
-    except (ValidationError, ValueError) as exc:
+    except (ValueError) as exc:
         error_str = str(exc)
         log_msg = f"{VALIDATOR_ERROR_PREFIX} Invalid answer for '{a_type}': {error_str}"
         logger.error(log_msg)
@@ -65,6 +80,16 @@ def validate_answer(request: ValidationRequest):
             error=error_str,
             log_message=log_msg,
         )
+    except (ValidationError) as exc:
+            error_str = _clean_pydantic_error(exc)
+            log_msg = f"{VALIDATOR_ERROR_PREFIX} Invalid answer for '{a_type}': {error_str}"
+            logger.error(log_msg)
+            return ValidationResponse(
+                is_valid=False,
+                answer_type=a_type,
+                error=error_str,
+                log_message=log_msg,
+            )
 
 
 @app.post("/calculate")
