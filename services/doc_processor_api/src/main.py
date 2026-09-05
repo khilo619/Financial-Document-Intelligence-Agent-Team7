@@ -41,36 +41,14 @@ def process_pdf(request: ProcessPdfRequest):
     doc_id = request.document_id or request.pdf_path.split("/")[-1]
     logger.info("Processing PDF document: %s", doc_id)
     sample_blocks =process_pdfs_to_custom_schema(request.pdf_path, doc_id)
-    # Day 1 Scaffold: Return dummy layout-aware blocks conforming to DocumentBlock schema
-    sample_blocks = [
-        DocumentBlock(
-            block_id=f"{doc_id}-blk-001",
-            document_id=doc_id,
-            page=1,
-            content_type="header",
-            markdown_content="# CTS CORPORATION - NOTE 4: INVENTORIES",
-            bbox=[50.0, 50.0, 500.0, 80.0],
-            metadata={"period": "2019"},
-        ),
-        DocumentBlock(
-            block_id=f"{doc_id}-blk-002",
-            document_id=doc_id,
-            page=1,
-            content_type="table",
-            markdown_content="| Finished Goods | 2019: $9,447 | 2018: $8,912 | (In thousands) |",
-            table_rows=[
-                ["Category", "2019", "2018"],
-                ["Finished Goods", "9,447", "8,912"],
-            ],
-            bbox=[50.0, 90.0, 500.0, 200.0],
-            metadata={"scale": "thousand", "period": "2019"},
-        ),
-    ]
-
+    total_pages = max(
+        (b.get("page", 1) if isinstance(b, dict) else b.page for b in extracted_blocks), 
+        default=1
+    )
     elapsed = round(time.time() - start_time, 3)
     return ProcessPdfResponse(
         document_id=doc_id,
-        total_pages=1,
+        total_pages=total_pages,
         total_blocks=len(sample_blocks),
         blocks=sample_blocks,
         processing_time_s=elapsed,
