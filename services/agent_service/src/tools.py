@@ -2,8 +2,11 @@ import requests
 from langchain_core.tools import tool
 import ast
 import operator
+from shared.config import get_service_url, ServiceName
 
-RETRIEVAL_API_URL="http://retrieval-api:8003/search"
+RETRIEVAL_API_URL = (
+    f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
+)
 
 #---------------------------------------------------------
 # Serach Document tool-
