@@ -42,7 +42,7 @@ def process_pdf(request: ProcessPdfRequest):
     logger.info("Processing PDF document: %s", doc_id)
     sample_blocks =process_pdfs_to_custom_schema(request.pdf_path, doc_id)
     total_pages = max(
-        (b.get("page", 1) if isinstance(b, dict) else b.page for b in extracted_blocks), 
+        (b.get("page", 1) if isinstance(b, dict) else b.page for b in sample_blocks), 
         default=1
     )
     elapsed = round(time.time() - start_time, 3)
