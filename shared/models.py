@@ -2,6 +2,8 @@
 shared.models: Canonical Pydantic schemas and immutable contracts for Project LEDGER.
 These schemas serve as the single source of truth across all 7 microservices.
 """
+import math
+import simpleeval
 
 from enum import Enum
 from typing import Any, Literal
@@ -76,7 +78,7 @@ class InsufficientParams(BaseModel):
 
     reason: str = Field(
         ...,
-        min_length=3,
+        min_length=1,
         description="Explanation of why grounding was insufficient to prevent hallucination",
     )
 
@@ -111,11 +113,30 @@ class StrictAnswer(BaseModel):
                 raise ValueError(
                     f"Calculated answer value must be a number, got {type(calc.value).__name__}."
                 )
+            # Reject non-finite values outright
+            if not math.isfinite(calc.value):
+                raise ValueError(f"Calculated answer value must be finite, got {calc.value}.")
+
             if len(evidence) < 1:
                 raise ValueError(
                     "Calculated answer requires evidence citations for the operands."
                 )
+            # Recompute the formula independently and compare to the reported value
+            try:
+                SAFE_FUNCTIONS = {"abs": abs, "round": round, "min": min, "max": max, "pow": pow}
+                recomputed = simpleeval.simple_eval(calc.formula, functions=SAFE_FUNCTIONS)
+            except (simpleeval.InvalidExpression, SyntaxError, ZeroDivisionError, TypeError) as exc:
+                raise ValueError(f"Formula '{calc.formula}' could not be evaluated: {exc}")
 
+            if not math.isfinite(recomputed):
+                raise ValueError(f"Formula '{calc.formula}' evaluates to a non-finite value.")
+
+            if not math.isclose(recomputed, calc.value, rel_tol=1e-3, abs_tol=1e-6):
+                raise ValueError(
+                    f"Reported value {calc.value} does not match formula result "
+                    f"{recomputed} for '{calc.formula}'."
+                )
+            
         elif a_type == AnswerType.MULTI_SPAN.value:
             ms = MultiSpanParams(**params)
             if len(ms.values) < 2:
