@@ -6,14 +6,21 @@ Owned by Youssef (Member 3) - Initial scaffold by Khaled (Repo Lead).
 import logging
 
 from fastapi import FastAPI
+from langchain_core.messages import HumanMessage
 
 from shared.config import ServiceName
-from shared.models import AskRequest, Citation, StrictAnswer
+from shared.models import AskRequest, StrictAnswer
+
+from .graph import graph
+
 
 logging.basicConfig(
-    level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
 )
+
 logger = logging.getLogger("AgentService")
+
 
 app = FastAPI(
     title="Project LEDGER - Agent Reasoning Service",
@@ -34,26 +41,22 @@ def health_check():
 @app.post("/solve", response_model=StrictAnswer)
 def solve_question(request: AskRequest):
     """
-    Formulates multi-hop search queries, reasons over retrieved evidence,
-    calls calculator tools, and outputs a validated StrictAnswer.
+    Run the LangGraph reasoning workflow and return the final StrictAnswer.
     """
-    logger.info("Agent received reasoning request for: '%s'", request.query)
 
-    # Day 1 Scaffold: Simulate LangGraph reasoning graph execution
-    return StrictAnswer(
-        answer_type="calculated",
-        evidence=[
-            Citation(
-                document_id="cts-corporation_2019.pdf", page=1, section="Finished Goods"
-            ),
-            Citation(
-                document_id="jabil-circuit-inc_2019.pdf",
-                page=1,
-                section="Finished Goods",
-            ),
-        ],
-        params={
-            "value": 304811.0,
-            "formula": "abs(9447 - 314258)",
-        },
+    logger.info(
+        "Agent received reasoning request for: '%s'",
+        request.query,
     )
+
+    initial_state = {
+        "query": request.query,
+        "messages": [
+            HumanMessage(content=request.query)
+        ],
+        "evidence": [],
+    }
+
+    final_state = graph.invoke(initial_state)
+
+    return final_state["answer"]
