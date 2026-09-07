@@ -29,7 +29,7 @@ doc_converter = DocumentConverter(
 import os
 from pathlib import Path
 from docling_core.types.doc import PictureItem, SectionHeaderItem, TableItem, TextItem
-
+import time
 
 from pathlib import Path
 from typing import List
@@ -160,21 +160,18 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str) -> List[DocumentBl
                 }
             )
 
-    raw_blocks.sort(
-        key=lambda b: (
-            b["page"],
-            -b["bbox"][1] if b["bbox"] else 0,
-            b["bbox"][0] if b["bbox"] else 0,
-        )
-    )
 
     merged_blocks = []
     for b in raw_blocks:
         if not merged_blocks:
             merged_blocks.append(b)
             continue
-            
         prev = merged_blocks[-1]
+        same_column = True
+        if prev["bbox"] and b["bbox"]:
+         prev_x_center = (prev["bbox"][0] + prev["bbox"][2]) / 2
+         curr_x_center = (b["bbox"][0] + b["bbox"][2]) / 2
+         same_column = abs(prev_x_center - curr_x_center) < 150  
         is_mergeable = (
             b["content_type"] == "text"
             and prev["content_type"] == "text"
