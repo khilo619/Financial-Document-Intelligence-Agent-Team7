@@ -11,7 +11,7 @@ RETRIEVAL_API_URL = (
 #---------------------------------------------------------
 # Serach Document tool-
 #----------------------------------------------------------
-@tool("search_document",description="Search relevant information from financial documents")
+@tool("search_documents",description="Search relevant information from financial documents")
 def search_documents(query:str , filters:dict| None=None):
     response=requests.post(RETRIEVAL_API_URL,
         json={
