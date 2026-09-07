@@ -31,12 +31,18 @@ from pathlib import Path
 from docling_core.types.doc import PictureItem, SectionHeaderItem, TableItem, TextItem
 
 
-def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str):
+from pathlib import Path
+from typing import List
+import uuid
+from models import DocumentBlock
+
+def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str) -> List[DocumentBlock]:
     result = doc_converter.convert(pdf_path)
     doc = result.document
     images_dir = Path("./TAT-DQA/processed_json/extracted_images")
     images_dir.mkdir(parents=True, exist_ok=True)
-    blocks = []
+    
+    raw_blocks = []
     block_counter = 1
     processed_picture_ids = set()
 
@@ -48,36 +54,33 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str):
         if hasattr(item, "prov") and item.prov and hasattr(item.prov[0], "bbox"):
             bbox = [round(c, 2) for c in item.prov[0].bbox.as_tuple()]
 
+      
         if isinstance(item, SectionHeaderItem):
             section_text = item.text.strip()
-            blocks.append(
+            raw_blocks.append(
                 {
-                    "block_id": f"blk_{block_counter:03d}",
-                    "document_id": doc_id,
                     "page": page_no,
                     "content_type": "header",
                     "markdown_content": section_text,
+                    "table_rows": None,
                     "bbox": bbox,
                 }
             )
-            block_counter += 1
 
         elif (
             isinstance(item, TextItem)
             and hasattr(item, "text")
             and item.text.strip()
         ):
-            blocks.append(
+            raw_blocks.append(
                 {
-                    "block_id": f"blk_{block_counter:03d}",
-                    "document_id": doc_id,
                     "page": page_no,
                     "content_type": "text",
                     "markdown_content": item.text.strip(),
+                    "table_rows": None,
                     "bbox": bbox,
                 }
             )
-            block_counter += 1
 
         elif isinstance(item, PictureItem):
             item_id = id(item)
@@ -107,21 +110,29 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str):
                 if (hasattr(item, "caption") and item.caption)
                 else "Figure/Chart"
             )
-            blocks.append(
+            
+            md_content = (
+                f"![{caption_text}]({markdown_image_path})"
+                if markdown_image_path
+                else f"![{caption_text}]"
+            )
+
+            raw_blocks.append(
                 {
-                    "block_id": block_id,
-                    "document_id": doc_id,
                     "page": page_no,
-                    "content_type": "figure",
-                    "markdown_content": f"![{caption_text}]({markdown_image_path})"
-                    if markdown_image_path
-                    else f"![{caption_text}]",
+                    "content_type": "text", 
+                    "markdown_content": md_content,
+                    "table_rows": None,
                     "bbox": bbox,
                 }
             )
             block_counter += 1
+
+        
         elif isinstance(item, TableItem):
-            block_id = f"blk_{block_counter:03d}"
+            table_md = ""
+            table_rows_grid = None
+
             try:
                 if hasattr(item, "export_to_markdown"):
                     table_md = item.export_to_markdown(doc)
@@ -129,32 +140,40 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str):
                     df = item.export_to_dataframe(doc)
                     table_md = df.to_markdown(index=False)
             except Exception as e:
-                print(f"Failed to export table for {block_id}: {e}")
-                table_md = ""
+                print(f"Failed to export table markdown: {e}")
 
-            blocks.append(
+            try:
+                df = item.export_to_dataframe(doc)
+                headers = [str(c) for c in df.columns]
+                data = df.astype(str).values.tolist()
+                table_rows_grid = [headers] + data
+            except Exception as e:
+                print(f"Failed to extract 2D grid for table: {e}")
+
+            raw_blocks.append(
                 {
-                    "block_id": block_id,
-                    "document_id": doc_id,
                     "page": page_no,
                     "content_type": "table",
                     "markdown_content": table_md,
+                    "table_rows": table_rows_grid,
                     "bbox": bbox,
                 }
             )
-            block_counter += 1
-    blocks.sort(
+
+    raw_blocks.sort(
         key=lambda b: (
             b["page"],
             -b["bbox"][1] if b["bbox"] else 0,
             b["bbox"][0] if b["bbox"] else 0,
         )
     )
+
     merged_blocks = []
-    for b in blocks:
+    for b in raw_blocks:
         if not merged_blocks:
             merged_blocks.append(b)
             continue
+            
         prev = merged_blocks[-1]
         is_mergeable = (
             b["content_type"] == "text"
@@ -172,17 +191,20 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str):
                 prev["bbox"][3] = max(prev["bbox"][3], b["bbox"][3])
         else:
             merged_blocks.append(b)
-    final_blocks = []
-    for idx, b in enumerate(merged_blocks, start=1):
-        final_blocks.append(
-            {
-                "block_id": f"blk_{idx:03d}",
-                "document_id": doc_id,
-                "page": b["page"],
-                "content_type": b["content_type"],
-                "markdown_content": b["markdown_content"],
-                "bbox": b["bbox"],
-            }
-        )
 
-    return final_blocks
+
+    final_document_blocks: List[DocumentBlock] = []
+    for idx, b in enumerate(merged_blocks, start=1):
+        block_obj = DocumentBlock(
+            block_id=f"blk_{idx:03d}",
+            document_id=doc_id,
+            page=b["page"],
+            content_type=b["content_type"], 
+            markdown_content=b["markdown_content"],
+            table_rows=b["table_rows"],
+            bbox=b["bbox"],
+            metadata={},
+        )
+        final_document_blocks.append(block_obj)
+
+    return final_document_blocks
