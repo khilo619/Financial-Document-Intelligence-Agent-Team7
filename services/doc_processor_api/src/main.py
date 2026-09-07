@@ -36,8 +36,6 @@ def process_pdf(request: ProcessPdfRequest):
     Parses a PDF into layout-aware blocks (text, markdown tables, bounding boxes).
     """
     start_time = time.time()
-    
-    # Standardize document_id fallback
     doc_id = request.document_id or request.pdf_path.split("/")[-1]
     logger.info("Processing PDF document: %s", doc_id)
 
@@ -47,8 +45,7 @@ def process_pdf(request: ProcessPdfRequest):
         logger.error("Failed to process PDF %s: %s", doc_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"PDF processing failed: {str(e)}")
 
-
-    total_pages = max((b.page for b in blocks), default=0) + 1 if blocks else 1
+    total_pages = max((b.page for b in blocks), default=1) if blocks else 1
     elapsed = round(time.time() - start_time, 3)
 
     return ProcessPdfResponse(
