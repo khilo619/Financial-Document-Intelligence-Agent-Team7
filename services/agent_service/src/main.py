@@ -51,8 +51,15 @@ def solve_question(request: AskRequest):
 
     initial_state = {
         "query": request.query,
+        "document_id": request.document_id,
         "messages": [
-            HumanMessage(content=request.query)
+            HumanMessage(
+                content=f"""
+    Document ID: {request.document_id}
+
+    Question: {request.query}
+    """
+            )
         ],
         "evidence": [],
     }

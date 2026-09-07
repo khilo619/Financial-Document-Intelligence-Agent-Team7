@@ -12,6 +12,12 @@ Rules:
 4. Do not invent or assume missing financial information.
 5. Base the final answer only on the available evidence.
 6. If the evidence is insufficient, clearly state that there is insufficient evidence.
+7. If a document_id is provided, you MUST use it as a
+document_id filter when calling search_documents or
+search_tables.
+
+8. Never search outside the specified document when
+document_id is provided.
 """
 
 
