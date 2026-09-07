@@ -7,7 +7,7 @@ from shared.models import StrictAnswer
 from .prompts import (
     SYSTEM_PROMPT,
     FINALIZE_PROMPT,
-    REPAIR_PROMPT,
+    REPAIR_PROMPT
 )
 from langchain_core.messages import ToolMessage
 from shared.config import (
@@ -35,7 +35,31 @@ llm_with_tools = llm.bind_tools(tools)
 # tool node   
 tool_node = ToolNode(tools)
 #--------------------------------------------
+# decomposition node
+#-------------------------------------------
+def decompose(state: AgentState):
+    last_message = state["messages"][-1]
+
+    return {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": (
+                "The original question has been decomposed into "
+                "the following sub-questions:\n\n"
+                + "\n".join(
+                    f"{i}. {question}"
+                    for i, question in enumerate(last_message.content, start=1)
+                )
+            ),
+            }
+        ]
+    }
+
+
+#--------------------------------------
 # reason node
+#-----------------------------------------
 def reason(state: AgentState):
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -49,14 +73,33 @@ def reason(state: AgentState):
     }
     
 #-----------------------------------------------------
-# router after reason node
+# router after reason node to :
+# finalize -end if direct query , else go to tools 
 def route_after_reason(state: AgentState):
     last_message = state["messages"][-1]
+    tool_calls = getattr(last_message, "tool_calls", None)
 
-    if getattr(last_message, "tool_calls", None):
+    if tool_calls:
         return "tools"
 
-    return "end" 
+    return "end"
+#-----------------------------------------------
+# route after tools
+def route_after_tools(state: AgentState):
+    last_message = state["messages"][-1]
+
+    if isinstance(last_message, ToolMessage):
+        if last_message.name == "decompose_question":
+            return "decompose"
+
+        elif last_message.name in [
+            "search_documents",
+            "search_tables",
+            "calculate",
+        ]:
+            return "evidence"
+
+    return "evidence"
 #--------------------------------------------
 # evidence nood
 def collect_evidence(state: AgentState):
@@ -170,7 +213,10 @@ def repair(state: AgentState):
     }
 #-------------------------------------------------------
 # building graph
+#--------------------------------------------------------
 builder = StateGraph(AgentState)
+builder.add_node("decompose", decompose)
+
 builder.add_node("reason", reason)
 builder.add_edge(START, "reason")
 
@@ -197,8 +243,16 @@ builder.add_conditional_edges(
         "repair": "repair",
     },
 )
-builder.add_edge("tools", "evidence")
+builder.add_conditional_edges(
+    "tools",
+    route_after_tools,
+    {
+        "decompose": "decompose",
+        "evidence": "evidence",
+    },
+)
 builder.add_edge("evidence", "reason")
+builder.add_edge("decompose", "reason")
 builder.add_edge("repair", "validate")
 
 

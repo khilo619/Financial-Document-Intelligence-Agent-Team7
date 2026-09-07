@@ -3,10 +3,32 @@ from langchain_core.tools import tool
 import ast
 import operator
 from shared.config import get_service_url, ServiceName
+from langchain_openai import ChatOpenAI
+from shared.config import DEFAULT_LLM_MODEL, DEFAULT_LLM_TEMPERATURE
+from shared.models import DecompositionResult
+from .prompts import DECOMPOSE_PROMPT
+
 
 RETRIEVAL_API_URL = (
     f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
 )
+
+#-----------------------------------------
+# decompose tool -
+#--------------------------------------------
+@tool("decompose_question",description="Break a complex financial question into smaller sub-questions.")
+def decompose_question(query: str) -> list[str]:
+    decomposition_llm = ChatOpenAI(
+        model=DEFAULT_LLM_MODEL,
+        temperature=DEFAULT_LLM_TEMPERATURE,
+    ).with_structured_output(DecompositionResult)
+
+    result = decomposition_llm.invoke([
+        {"role": "system", "content": DECOMPOSE_PROMPT},
+        {"role": "user", "content": query},
+    ])
+
+    return result.sub_questions
 
 #---------------------------------------------------------
 # Serach Document tool-
@@ -117,4 +139,4 @@ def calculate(expression:str) -> float:
 #-------------------------------------------------
 #-------------------------------------------------
 
-tools=[search_documents,search_tables,calculate]
+tools=[decompose_question,search_documents,search_tables,calculate]
