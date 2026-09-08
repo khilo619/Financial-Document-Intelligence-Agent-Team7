@@ -4,7 +4,7 @@ from pathlib import Path
 import warnings
 import json
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions,TableFormerMode
+from docling.datamodel.pipeline_options import PdfPipelineOptions,TableFormerMode,AcceleratorOptions,AcceleratorDevice
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import SectionHeaderItem, TextItem, TableItem
 from docling_core.types.doc import PictureItem
@@ -12,19 +12,27 @@ from pypdf import PdfReader
 import csv
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
+import torch
 
+def get_doc_converter() -> DocumentConverter:
+    """Helper function to construct DocumentConverter once."""
 
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+    
+    device = AcceleratorDevice.CUDA if torch.cuda.is_available() else AcceleratorDevice.CPU
+    
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.accelerator_options = AcceleratorOptions(device=device)
+    pipeline_options.generate_page_images = True
+    pipeline_options.generate_picture_images = True
+    pipeline_options.do_table_structure = True
+    pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
 
-pipeline_options = PdfPipelineOptions()
-pipeline_options.generate_page_images = True
-pipeline_options.generate_picture_images = True
-pipeline_options.do_table_structure = True
-pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
-doc_converter = DocumentConverter(
-    format_options={
-        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-    }
-)
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
+    )
 
 import os
 from pathlib import Path
@@ -36,7 +44,11 @@ from typing import List
 import uuid
 from models import DocumentBlock
 
-def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str) -> List[DocumentBlock]:
+def process_pdfs_to_custom_schema(
+    pdf_path: str, 
+    doc_id: str, 
+    doc_converter: DocumentConverter 
+) -> List[DocumentBlock]:
     result = doc_converter.convert(pdf_path)
     doc = result.document
     images_dir = Path("./TAT-DQA/processed_json/extracted_images")
@@ -205,3 +217,25 @@ def process_pdfs_to_custom_schema(pdf_path: str, doc_id: str) -> List[DocumentBl
         final_document_blocks.append(block_obj)
 
     return final_document_blocks
+doc_converter = get_doc_converter()
+def process_single_pdf_with_metrics(pdf_path: str, doc_id: str):
+
+    start_time = time.perf_counter()
+
+    blocks = process_pdfs_to_custom_schema(
+    pdf_path=pdf_path, 
+    doc_id=doc_id, 
+    doc_converter=doc_converter  
+      )
+
+    elapsed_seconds = round(time.perf_counter() - start_time, 3)
+
+    total_pages = max((b.page for b in blocks), default=1) if blocks else 1
+    seconds_per_page = round(elapsed_seconds / total_pages, 3)
+
+    print(f"File: {Path(pdf_path).name}")
+    print(f"Total Pages: {total_pages}")
+    print(f"Total Time: {elapsed_seconds} seconds")
+    print(f"Speed: {seconds_per_page} seconds/page")
+
+    return blocks, elapsed_seconds
