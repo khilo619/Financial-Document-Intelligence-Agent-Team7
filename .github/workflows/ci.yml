@@ -24,7 +24,7 @@ jobs:
       - name: Install development & test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest httpx pydantic python-dotenv simpleeval fastapi "uvicorn[standard]"
+          pip install ruff pytest httpx pydantic python-dotenv simpleeval fastapi "uvicorn[standard]" python-multipart
 
       - name: Run Ruff Linter (PEP 8 & Anti-Pattern Detection)
         run: |

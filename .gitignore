@@ -64,6 +64,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+*:Zone.Identifier
+*Zone.Identifier
 
 # --- Data, Heavy Binaries & PDF Corpus ---
 # Notice: TAT-DQA 2,758 raw PDFs (~2 GB) MUST NEVER be committed to Git!

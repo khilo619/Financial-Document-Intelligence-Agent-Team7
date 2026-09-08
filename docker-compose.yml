@@ -67,6 +67,7 @@ services:
   # [Port 8002] Deep-learning layout OCR, table extraction, and chunking
   # ----------------------------------------------------------------------------
   doc-processor-api:
+    image: ghcr.io/khilo619/ledger-doc-processor-api:latest
     build:
       context: .
       dockerfile: services/doc_processor_api/Dockerfile
