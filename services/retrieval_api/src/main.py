@@ -5,8 +5,9 @@ Owned by Salma (Member 2) - Initial scaffold by Khaled (Repo Lead).
 
 import logging
 import time
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from shared.config import ServiceName
 from shared.models import (
@@ -34,57 +35,96 @@ logger = logging.getLogger("RetrievalAPI")
 
 
 # ---------------------------------------------------------
+# FastAPI Lifespan
+# ---------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manage application startup and shutdown.
+
+    Startup:
+        - Initialize Qdrant store and embedding model
+        - Initialize BM25 engine
+        - Initialize RRF fusion
+        - Initialize Cross-Encoder reranker
+        - Build BM25 index
+
+    Shutdown:
+        - Perform cleanup if required
+    """
+
+    logger.info(
+        "Starting Retrieval API..."
+    )
+
+    # -----------------------------------------------------
+    # Initialize retrieval components
+    # -----------------------------------------------------
+
+    app.state.qdrant_store = QdrantStore()
+
+    app.state.bm25_engine = BM25Engine()
+
+    app.state.rrf_fusion = RRFFusion()
+
+    app.state.reranker = Reranker()
+
+    # -----------------------------------------------------
+    # Initialize BM25 index
+    # -----------------------------------------------------
+
+    logger.info(
+        "Loading documents from Qdrant..."
+    )
+
+    documents = (
+        app.state.qdrant_store
+        .get_all_documents()
+    )
+
+    app.state.bm25_engine.index_documents(
+        documents
+    )
+
+    logger.info(
+        "BM25 index initialized with %d documents",
+        len(documents),
+    )
+
+    logger.info(
+        "Retrieval API is ready."
+    )
+
+    # -----------------------------------------------------
+    # Application runs here
+    # -----------------------------------------------------
+
+    yield
+
+    # -----------------------------------------------------
+    # Shutdown
+    # -----------------------------------------------------
+
+    logger.info(
+        "Shutting down Retrieval API..."
+    )
+
+
+# ---------------------------------------------------------
 # FastAPI application
 # ---------------------------------------------------------
 
 app = FastAPI(
-    title="Project LEDGER - Hybrid Retrieval API",
+    title=(
+        "Project LEDGER - Hybrid Retrieval API"
+    ),
     description=(
         "Dense (Qdrant) + Sparse (BM25) search "
         "fused via RRF and reranked via Cross-Encoder."
     ),
     version="0.1.0",
-)
-
-
-# ---------------------------------------------------------
-# Initialize retrieval components
-# ---------------------------------------------------------
-
-# Initialize the Qdrant vector store.
-# This also loads the BGE embedding model.
-qdrant_store = QdrantStore()
-
-
-# Initialize the BM25 sparse retrieval engine.
-bm25_engine = BM25Engine()
-
-
-# Initialize Reciprocal Rank Fusion.
-rrf_fusion = RRFFusion()
-
-
-# Initialize the Cross-Encoder reranker.
-# This loads BAAI/bge-reranker-large.
-reranker = Reranker()
-
-
-# ---------------------------------------------------------
-# Initialize BM25 index
-# ---------------------------------------------------------
-
-# Load all documents currently stored in Qdrant.
-# These documents are used to build the BM25 index.
-documents = qdrant_store.get_all_documents()
-
-
-# Build the BM25 index from the retrieved documents.
-bm25_engine.index_documents(documents)
-
-
-logger.info(
-    "BM25 index initialized with %d documents",
-    len(documents),
+    lifespan=lifespan,
 )
 
 
@@ -95,7 +135,8 @@ logger.info(
 @app.get("/health")
 def health_check():
     """
-    Health check endpoint used by Docker and other services.
+    Health check endpoint used by Docker
+    and other services.
     """
 
     return {
@@ -113,7 +154,10 @@ def health_check():
     "/search",
     response_model=SearchQueryResponse,
 )
-def search_documents(request: SearchQueryRequest):
+def search_documents(
+    search_request: SearchQueryRequest,
+    request: Request,
+):
     """
     Execute hybrid retrieval:
 
@@ -132,177 +176,305 @@ def search_documents(request: SearchQueryRequest):
         Top-N Results
     """
 
-    start_time = time.time()
+    # -----------------------------------------------------
+    # Start total latency measurement
+    # -----------------------------------------------------
+
+    start_time = time.perf_counter()
+
+    # -----------------------------------------------------
+    # Get initialized components
+    # -----------------------------------------------------
+
+    qdrant_store = (
+        request.app.state.qdrant_store
+    )
+
+    bm25_engine = (
+        request.app.state.bm25_engine
+    )
+
+    rrf_fusion = (
+        request.app.state.rrf_fusion
+    )
+
+    reranker = (
+        request.app.state.reranker
+    )
 
     logger.info(
         "Executing search query: '%s' "
         "(top_k=%d, top_n=%d, filters=%s, reranking=%s)",
-        request.query,
-        request.top_k,
-        request.top_n,
-        request.filters,
-        request.use_reranking,
+        search_request.query,
+        search_request.top_k,
+        search_request.top_n,
+        search_request.filters,
+        search_request.use_reranking,
     )
 
-    # -----------------------------------------------------
-    # 1. Dense retrieval using Qdrant
-    # -----------------------------------------------------
+    # =====================================================
+    # 1. Dense retrieval
+    # =====================================================
 
-    qdrant_results = qdrant_store.search(
-        query=request.query,
-        top_k=request.top_k,
-        filters=request.filters,
+    stage_start = time.perf_counter()
+
+    qdrant_results = (
+        qdrant_store.search(
+            query=search_request.query,
+            top_k=search_request.top_k,
+            filters=search_request.filters,
+        )
     )
+
+    dense_latency_ms = (
+        time.perf_counter()
+        - stage_start
+    ) * 1000
 
     logger.info(
-        "Dense search returned %d results",
+        "Dense search returned %d results "
+        "in %.2f ms",
         len(qdrant_results),
+        dense_latency_ms,
     )
 
+    # =====================================================
+    # 2. Sparse retrieval
+    # =====================================================
 
-    # -----------------------------------------------------
-    # 2. Sparse retrieval using BM25
-    # -----------------------------------------------------
+    stage_start = time.perf_counter()
 
-    # Pass the same filters used by Qdrant to BM25.
-    # This prevents sparse retrieval from returning
-    # documents outside the requested filter scope.
-    bm25_results = bm25_engine.search(
-        query=request.query,
-        top_k=request.top_k,
-        filters=request.filters,
+    bm25_results = (
+        bm25_engine.search(
+            query=search_request.query,
+            top_k=search_request.top_k,
+            filters=search_request.filters,
+        )
     )
+
+    sparse_latency_ms = (
+        time.perf_counter()
+        - stage_start
+    ) * 1000
 
     logger.info(
-        "Sparse search returned %d results",
+        "Sparse search returned %d results "
+        "in %.2f ms",
         len(bm25_results),
+        sparse_latency_ms,
     )
 
+    # =====================================================
+    # 3. RRF Fusion
+    # =====================================================
 
-    # -----------------------------------------------------
-    # 3. Reciprocal Rank Fusion
-    # -----------------------------------------------------
+    stage_start = time.perf_counter()
 
-    fused_results = rrf_fusion.fuse(
-        [
-            qdrant_results,
-            bm25_results,
-        ]
+    fused_results = (
+        rrf_fusion.fuse(
+            [
+                qdrant_results,
+                bm25_results,
+            ]
+        )
     )
+
+    rrf_latency_ms = (
+        time.perf_counter()
+        - stage_start
+    ) * 1000
 
     logger.info(
         "Dense results: %d | Sparse results: %d | "
-        "Fused results: %d",
+        "Fused results: %d | RRF latency: %.2f ms",
         len(qdrant_results),
         len(bm25_results),
         len(fused_results),
+        rrf_latency_ms,
     )
 
+    # =====================================================
+    # 4. Select Top-K candidates
+    # =====================================================
 
-    # -----------------------------------------------------
-    # 4. Select Top-K candidates for reranking
-    # -----------------------------------------------------
-
-    candidates = fused_results[: request.top_k]
+    candidates = fused_results[
+        :search_request.top_k
+    ]
 
     logger.info(
         "Selected %d candidates for reranking",
         len(candidates),
     )
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # 5. Cross-Encoder reranking
-    # -----------------------------------------------------
+    # =====================================================
 
-    if request.use_reranking and candidates:
+    rerank_latency_ms = 0.0
+
+    if (
+        search_request.use_reranking
+        and candidates
+    ):
 
         logger.info(
-            "Running Cross-Encoder reranking on %d candidates",
+            "Running Cross-Encoder reranking "
+            "on %d candidates",
             len(candidates),
         )
 
-        final_results = reranker.rerank(
-            query=request.query,
-            results=candidates,
-            top_n=request.top_n,
+        stage_start = time.perf_counter()
+
+        final_results = (
+            reranker.rerank(
+                query=search_request.query,
+                results=candidates,
+                top_n=search_request.top_n,
+            )
+        )
+
+        rerank_latency_ms = (
+            time.perf_counter()
+            - stage_start
+        ) * 1000
+
+        logger.info(
+            "Reranking completed in %.2f ms",
+            rerank_latency_ms,
         )
 
     else:
 
         logger.info(
-            "Cross-Encoder reranking disabled",
+            "Cross-Encoder reranking disabled"
         )
 
-        final_results = candidates[: request.top_n]
+        final_results = candidates[
+            :search_request.top_n
+        ]
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # 6. Convert results to RetrievedChunk
-    # -----------------------------------------------------
+    # =====================================================
 
     results = []
 
     for result in final_results:
 
-        metadata = result.get("metadata", {})
+        metadata = result.get(
+            "metadata",
+            {},
+        )
 
-        # If reranking was used successfully,
-        # use the Cross-Encoder score as the final score.
-        #
-        # Otherwise, use the RRF score.
+        # -------------------------------------------------
+        # Determine final score
+        # -------------------------------------------------
+
         if (
-            request.use_reranking
-            and result.get("rerank_score") is not None
+            search_request.use_reranking
+            and result.get(
+                "rerank_score"
+            ) is not None
         ):
-            final_score = result["rerank_score"]
+
+            final_score = (
+                result["rerank_score"]
+            )
 
         else:
-            final_score = result["rrf_score"]
 
+            final_score = (
+                result["rrf_score"]
+            )
+
+        # -------------------------------------------------
+        # Build response object
+        # -------------------------------------------------
 
         results.append(
             RetrievedChunk(
-                chunk_id=result["chunk_id"],
-                document_id=result["document_id"],
-                page=result["page"],
-                section=metadata.get("section", ""),
-                content_type=result["content_type"],
-                content=result["content"],
+                chunk_id=result[
+                    "chunk_id"
+                ],
+                document_id=result[
+                    "document_id"
+                ],
+                page=result[
+                    "page"
+                ],
+                section=metadata.get(
+                    "section",
+                    "",
+                ),
+                content_type=result[
+                    "content_type"
+                ],
+                content=result[
+                    "content"
+                ],
                 score=final_score,
-                dense_score=result.get("dense_score"),
-                sparse_score=result.get("sparse_score"),
-                rerank_score=result.get("rerank_score"),
-                bbox=result.get("bbox"),
+                dense_score=result.get(
+                    "dense_score"
+                ),
+                sparse_score=result.get(
+                    "sparse_score"
+                ),
+                rerank_score=result.get(
+                    "rerank_score"
+                ),
+                bbox=result.get(
+                    "bbox"
+                ),
                 metadata=metadata,
             )
         )
 
-
-    # -----------------------------------------------------
-    # 7. Calculate execution time
-    # -----------------------------------------------------
+    # =====================================================
+    # 7. Total execution time
+    # =====================================================
 
     elapsed_ms = round(
-        (time.time() - start_time) * 1000,
+        (
+            time.perf_counter()
+            - start_time
+        ) * 1000,
         2,
     )
 
+    # =====================================================
+    # 8. Latency logging
+    # =====================================================
 
     logger.info(
-        "Search completed: %d results in %s ms",
+        "Latency breakdown | "
+        "Dense: %.2f ms | "
+        "Sparse: %.2f ms | "
+        "RRF: %.2f ms | "
+        "Rerank: %.2f ms | "
+        "Total: %.2f ms",
+        dense_latency_ms,
+        sparse_latency_ms,
+        rrf_latency_ms,
+        rerank_latency_ms,
+        elapsed_ms,
+    )
+
+    logger.info(
+        "Search completed: %d results "
+        "in %.2f ms",
         len(results),
         elapsed_ms,
     )
 
-
-    # -----------------------------------------------------
-    # 8. Return API response
-    # -----------------------------------------------------
+    # =====================================================
+    # 9. API response
+    # =====================================================
 
     return SearchQueryResponse(
-        query=request.query,
+        query=search_request.query,
         results=results,
-        total_found=len(fused_results),
+        total_found=len(
+            fused_results
+        ),
         execution_time_ms=elapsed_ms,
     )
