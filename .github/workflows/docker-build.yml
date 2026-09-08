@@ -1,8 +1,8 @@
-name: Cloud Docker Build Verification
+name: Cloud Docker Build & Registry Publisher
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, "feature/**" ]
     paths:
       - "services/**"
       - "shared/**"
@@ -15,10 +15,15 @@ on:
       - "shared/**"
       - "docker-compose.yml"
       - ".github/workflows/docker-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build-containers:
-    name: Build & Validate All Microservices in Cloud
+  build-and-publish:
+    name: Build & Publish Microservices to GHCR
     runs-on: ubuntu-latest
 
     steps:
@@ -36,6 +41,33 @@ jobs:
         run: |
           docker compose config
 
-      - name: Parallel Cloud Build of All Service Images
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Lowercase Repository Owner
+        id: repo_owner
+        run: echo "owner=${OWNER,,}" >> $GITHUB_OUTPUT
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Build & Publish doc-processor-api Image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/doc_processor_api/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ledger-doc-processor-api:latest
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ledger-doc-processor-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Parallel Cloud Build Verification for Remaining Services
         run: |
           docker compose build --parallel
+
