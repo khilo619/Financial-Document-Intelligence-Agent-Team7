@@ -15,7 +15,8 @@ Important:
 - This script does NOT modify production Embedder/Reranker classes.
 - Models are benchmarked independently.
 - Models are warmed up before timing.
-- CUDA synchronization is used for accurate GPU timings.
+- CUDA synchronization is u
+sed for accurate GPU timings.
 """
 
 import gc
