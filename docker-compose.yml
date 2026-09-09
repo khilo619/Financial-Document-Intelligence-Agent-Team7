@@ -17,12 +17,11 @@ volumes:
   qdrant_data:
     name: ledger_qdrant_data
 
-  # Persistent local model volume.
-  # Models are stored once outside the Retrieval API image.
+  # Kept for backward compatibility.
+  # Retrieval models are now copied directly into the Docker image.
   models:
     name: ledger_models
 
-  # Kept temporarily for backward compatibility.
   huggingface_cache:
     name: ledger_huggingface_cache
 
@@ -169,33 +168,33 @@ services:
     environment:
       - RETRIEVAL_PORT=8003
       - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
       - QDRANT_COLLECTION_NAME=ledger_documents_processed
 
       # ------------------------------------------------------------------------
-      # Local embedding model
+      # Local embedding model inside Docker image
       # ------------------------------------------------------------------------
       - EMBEDDING_MODEL_NAME=/models/huggingface/bge-large-en-v1.5
 
       # ------------------------------------------------------------------------
-      # Local reranker model
+      # Local reranker model inside Docker image
       # ------------------------------------------------------------------------
       - RERANKER_MODEL_NAME=/models/huggingface/bge-reranker-large
 
       # ------------------------------------------------------------------------
       # Offline mode
-      # Prevents Hugging Face from attempting to download models.
+      # Prevent Hugging Face from downloading anything at runtime.
       # ------------------------------------------------------------------------
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
 
     # --------------------------------------------------------------------------
-    # Persistent local models + processed documents
+    # Processed documents
+    #
+    # Models are NO LONGER mounted as a volume.
+    # They are copied directly into the Docker image by Dockerfile.
     # --------------------------------------------------------------------------
     volumes:
-      # Models are stored once in the Docker named volume
-      # ledger_models and mounted read-only into the container.
-      - models:/models/huggingface:ro
-
       # Mount Zeina's processed output so Retrieval can index it.
       # Read-only because Retrieval should not modify preprocessing output.
       - ./data/tat_dqa:/data/tat_dqa:ro
