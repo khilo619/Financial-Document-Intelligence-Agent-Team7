@@ -138,7 +138,8 @@ class StrictAnswer(BaseModel):
 
         return self
 
-
+class DecompositionResult(BaseModel):
+    sub_questions: list[str]
 # ==============================================================================
 # 2. Document Processing & Ingestion Contracts (doc-processor-api)
 # ==============================================================================
