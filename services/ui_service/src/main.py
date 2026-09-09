@@ -57,6 +57,10 @@ RECENT_QUERIES_URL = (
     f"{ORCHESTRATOR_BASE_URL}/recent-queries"
 )
 
+DOCUMENT_UPLOAD_URL = (
+    f"{ORCHESTRATOR_BASE_URL}/documents/upload"
+)
+
 
 # =============================================================================
 # UI Constants
@@ -672,6 +676,248 @@ def suggestion_percentage():
 
 
 # =============================================================================
+# Document Upload
+# =============================================================================
+
+def upload_document(
+    pdf_path: str | None,
+    document_id: str | None,
+):
+    """
+    Upload one raw PDF to the Orchestrator document gateway.
+
+    The UI never fabricates processing results. It only renders the
+    ProcessPdfResponse returned by the backend.
+    """
+
+    if not pdf_path:
+        return (
+            "### Upload status\n\n"
+            "Choose a PDF file before starting document processing.",
+            None,
+        )
+
+    file_path = Path(pdf_path)
+
+    if file_path.suffix.lower() != ".pdf":
+        return (
+            "### Upload status\n\n"
+            "Only `.pdf` files are supported.",
+            None,
+        )
+
+    if not file_path.exists():
+        logger.error(
+            "Uploaded PDF path no longer exists: %s",
+            file_path,
+        )
+
+        return (
+            "### Upload status\n\n"
+            "The uploaded file is no longer available. "
+            "Please choose the PDF again.",
+            None,
+        )
+
+    clean_document_id = (
+        document_id
+        or ""
+    ).strip()
+
+    logger.info(
+        "Uploading document to Orchestrator: "
+        "filename='%s' document_id='%s'",
+        file_path.name,
+        clean_document_id or "auto",
+    )
+
+    try:
+        with (
+            file_path.open("rb") as pdf_file,
+            httpx.Client(timeout=190.0) as client,
+        ):
+            files = {
+                "file": (
+                    file_path.name,
+                    pdf_file,
+                    "application/pdf",
+                )
+            }
+
+            form_data: dict[str, str] = {}
+
+            if clean_document_id:
+                form_data["document_id"] = (
+                    clean_document_id
+                )
+
+            response = client.post(
+                DOCUMENT_UPLOAD_URL,
+                files=files,
+                data=form_data,
+            )
+
+    except httpx.TimeoutException:
+        logger.error(
+            "Document upload timed out: %s",
+            file_path.name,
+        )
+
+        return (
+            "### ⏱️ Processing timed out\n\n"
+            "The backend took too long to process this PDF. "
+            "No processed document was returned.",
+            None,
+        )
+
+    except httpx.RequestError as exc:
+        logger.error(
+            "Could not reach Orchestrator document endpoint: %s",
+            exc,
+        )
+
+        return (
+            "### 🔴 Backend unavailable\n\n"
+            "The Orchestrator could not be reached. "
+            "No processed document was returned.",
+            None,
+        )
+
+    if response.status_code != 200:
+        error_text = _extract_error_message(
+            response
+        )
+
+        logger.warning(
+            "Document upload failed with HTTP %s: %s",
+            response.status_code,
+            error_text,
+        )
+
+        return (
+            "### ❌ Processing failed\n\n"
+            f"{error_text}\n\n"
+            f"**HTTP status:** `{response.status_code}`",
+            None,
+        )
+
+    try:
+        processed_document = (
+            response.json()
+        )
+
+    except ValueError:
+        logger.error(
+            "Orchestrator returned malformed JSON "
+            "for document upload."
+        )
+
+        return (
+            "### ❌ Invalid backend response\n\n"
+            "The document was processed, but the backend "
+            "returned malformed JSON.",
+            None,
+        )
+
+    if not isinstance(
+        processed_document,
+        dict,
+    ):
+        logger.error(
+            "Document upload response is not an object."
+        )
+
+        return (
+            "### ❌ Invalid document response\n\n"
+            "The backend returned an unexpected "
+            "document structure.",
+            None,
+        )
+
+    returned_document_id = (
+        processed_document.get(
+            "document_id",
+            clean_document_id
+            or file_path.stem,
+        )
+    )
+
+    total_pages = processed_document.get(
+        "total_pages",
+        0,
+    )
+
+    blocks = processed_document.get(
+        "blocks",
+        [],
+    )
+
+    total_blocks = processed_document.get(
+        "total_blocks",
+        len(blocks)
+        if isinstance(blocks, list)
+        else 0,
+    )
+
+    processing_time = processed_document.get(
+        "processing_time_s"
+    )
+
+    table_count = 0
+
+    if isinstance(blocks, list):
+        for block in blocks:
+            if not isinstance(
+                block,
+                dict,
+            ):
+                continue
+
+            if (
+                block.get("content_type") == "table"
+                or block.get("table_rows")
+            ):
+                table_count += 1
+
+    summary_lines = [
+        "### ✓ Document processed successfully",
+        "",
+        f"**Document ID:** `{returned_document_id}`  ",
+        f"**Pages:** `{total_pages}`  ",
+        f"**Blocks:** `{total_blocks}`  ",
+        f"**Tables detected:** `{table_count}`",
+    ]
+
+    if processing_time is not None:
+        summary_lines.append(
+            f"  \n**Processing time:** "
+            f"`{processing_time} s`"
+        )
+
+    summary_lines.extend(
+        [
+            "",
+            "Open **Processed representation** below "
+            "to inspect the structured output returned "
+            "by the Document Processor.",
+        ]
+    )
+
+    logger.info(
+        "Document upload completed: "
+        "document_id='%s' pages=%s blocks=%s",
+        returned_document_id,
+        total_pages,
+        total_blocks,
+    )
+
+    return (
+        "\n".join(summary_lines),
+        processed_document,
+    )
+
+
+# =============================================================================
 # Dashboard
 # =============================================================================
 
@@ -1138,6 +1384,84 @@ def build_interface() -> gr.Blocks:
                     <div><h1>Documents</h1><p>The source behind every answer.</p></div>
                     <span class="page-badge">Report library</span>
                 </div>
+            """)
+
+            with gr.Group(elem_id="document-upload-card"):
+                gr.HTML("""
+                    <div class="upload-card-header">
+                        <div class="upload-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.6" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M12 16V4"/>
+                                <path d="m7 9 5-5 5 5"/>
+                                <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="eyebrow upload-eyebrow">Document processing</div>
+                            <h2>Upload a financial report</h2>
+                            <p>
+                                Send a raw PDF through LEDGER's Orchestrator to the
+                                Document Processor and inspect the structured result.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="upload-flow" aria-label="Processing flow">
+                        <span>PDF</span>
+                        <b>→</b>
+                        <span>OCR + layout</span>
+                        <b>→</b>
+                        <span>Structured output</span>
+                    </div>
+                """)
+
+                with gr.Row(elem_id="document-upload-fields"):
+                    document_file = gr.File(
+                        label="Financial report PDF",
+                        file_types=[".pdf"],
+                        file_count="single",
+                        type="filepath",
+                        elem_id="document-file",
+                        scale=3,
+                    )
+
+                    document_id_input = gr.Textbox(
+                        label="Document ID",
+                        placeholder="Optional — e.g. annual_report_2024",
+                        lines=1,
+                        elem_id="document-id-input",
+                        scale=2,
+                    )
+
+                upload_button = gr.Button(
+                    "Upload & process",
+                    variant="primary",
+                    elem_id="upload-document-btn",
+                )
+
+                upload_status = gr.Markdown(
+                    value=(
+                        "### Upload status\n\n"
+                        "_Choose a PDF to begin._"
+                    ),
+                    elem_id="upload-status",
+                )
+
+                with gr.Accordion(
+                    "Processed representation",
+                    open=False,
+                    elem_classes="ledger-details processed-document-details",
+                ):
+                    processed_document_json = gr.JSON(
+                        value=None,
+                        label="Structured document output",
+                        show_label=False,
+                        elem_id="processed-document-json",
+                    )
+
+            gr.HTML("""
                 <div class="empty-state">
                     <div class="empty-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1214,6 +1538,21 @@ def build_interface() -> gr.Blocks:
         ):
             button.click(fn=navigate, inputs=[], outputs=view_outputs, queue=False)
 
+        upload_button.click(
+            fn=upload_document,
+            inputs=[
+                document_file,
+                document_id_input,
+            ],
+            outputs=[
+                upload_status,
+                processed_document_json,
+            ],
+            concurrency_limit=1,
+            concurrency_id="ledger-document-upload",
+            show_progress="full",
+        )
+
         refresh_button.click(
             fn=refresh_dashboard, inputs=[],
             outputs=[health_summary, health_table, query_summary, recent_queries_table],
@@ -1228,12 +1567,15 @@ def build_interface() -> gr.Blocks:
 
 if __name__ == "__main__":
     ui_port = int(os.getenv("UI_PORT", "8000"))
+
     app = build_interface()
+
     app.launch(
         server_name="0.0.0.0",
         server_port=ui_port,
         theme=gr.themes.Base(
-            primary_hue="emerald", neutral_hue="slate",
+            primary_hue="emerald",
+            neutral_hue="slate",
         ),
         css=APP_CSS,
         js=APP_JS,
