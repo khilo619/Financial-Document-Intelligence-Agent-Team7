@@ -43,6 +43,7 @@ services:
   # [Port 8005] Strict schema gatekeeper and deterministic arithmetic engine
   # ----------------------------------------------------------------------------
   answer-validator-api:
+    image: ghcr.io/khilo619/ledger-answer-validator-api:latest
     build:
       context: .
       dockerfile: services/answer_validator_api/Dockerfile
@@ -67,6 +68,7 @@ services:
   # [Port 8002] Deep-learning layout OCR, table extraction, and chunking
   # ----------------------------------------------------------------------------
   doc-processor-api:
+    image: ghcr.io/khilo619/ledger-doc-processor-api:latest
     build:
       context: .
       dockerfile: services/doc_processor_api/Dockerfile
@@ -91,6 +93,7 @@ services:
   # [Port 8003] Hybrid dense (Qdrant) + sparse (BM25) search & cross-encoder
   # ----------------------------------------------------------------------------
   retrieval-api:
+    image: ghcr.io/khilo619/ledger-retrieval-api:latest
     build:
       context: .
       dockerfile: services/retrieval_api/Dockerfile
@@ -119,6 +122,7 @@ services:
   # [Port 8004] LangGraph cyclic reasoning brain & discrete calculation routing
   # ----------------------------------------------------------------------------
   agent-service:
+    image: ghcr.io/khilo619/ledger-agent-service:latest
     build:
       context: .
       dockerfile: services/agent_service/Dockerfile
@@ -150,6 +154,7 @@ services:
   # [Port 8001] Central API Gateway coordinating user requests
   # ----------------------------------------------------------------------------
   orchestrator-api:
+    image: ghcr.io/khilo619/ledger-orchestrator-api:latest
     build:
       context: .
       dockerfile: services/orchestrator_api/Dockerfile
@@ -182,6 +187,7 @@ services:
   # [Port 8006] Automated benchmark harness & Langfuse observability
   # ----------------------------------------------------------------------------
   eval-service:
+    image: ghcr.io/khilo619/ledger-eval-service:latest
     build:
       context: .
       dockerfile: services/eval_service/Dockerfile
@@ -210,6 +216,7 @@ services:
   # [Port 8000] Gradio User Interface (Chat + Evidence + Dashboard)
   # ----------------------------------------------------------------------------
   ui-service:
+    image: ghcr.io/khilo619/ledger-ui-service:latest
     build:
       context: .
       dockerfile: services/ui_service/Dockerfile
