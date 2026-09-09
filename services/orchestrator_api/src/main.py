@@ -22,7 +22,7 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from fastapi import (
@@ -44,7 +44,6 @@ from shared.models import (
     ValidationResponse,
 )
 
-
 # =============================================================================
 # Logging
 # =============================================================================
@@ -61,23 +60,14 @@ logger = logging.getLogger("OrchestratorAPI")
 # Service URLs
 # =============================================================================
 
-AGENT_URL = (
-    f"{get_service_url(ServiceName.AGENT.value)}/solve"
-)
+AGENT_URL = f"{get_service_url(ServiceName.AGENT.value)}/solve"
 
-VALIDATOR_URL = (
-    f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}"
-    "/validate_answer"
-)
+VALIDATOR_URL = f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
 
-DOC_PROCESSOR_URL = (
-    f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}"
-    "/process_pdf"
-)
+DOC_PROCESSOR_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/process_pdf"
 
 DOC_PROCESSOR_UPLOAD_URL = (
-    f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}"
-    "/upload_pdf"
+    f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/upload_pdf"
 )
 
 
@@ -87,33 +77,23 @@ DOC_PROCESSOR_UPLOAD_URL = (
 
 SERVICE_HEALTH_TARGETS = {
     ServiceName.DOC_PROCESSOR.value: (
-        get_service_url(
-            ServiceName.DOC_PROCESSOR.value
-        ),
+        get_service_url(ServiceName.DOC_PROCESSOR.value),
         "/health",
     ),
     ServiceName.RETRIEVAL.value: (
-        get_service_url(
-            ServiceName.RETRIEVAL.value
-        ),
+        get_service_url(ServiceName.RETRIEVAL.value),
         "/health",
     ),
     ServiceName.AGENT.value: (
-        get_service_url(
-            ServiceName.AGENT.value
-        ),
+        get_service_url(ServiceName.AGENT.value),
         "/health",
     ),
     ServiceName.ANSWER_VALIDATOR.value: (
-        get_service_url(
-            ServiceName.ANSWER_VALIDATOR.value
-        ),
+        get_service_url(ServiceName.ANSWER_VALIDATOR.value),
         "/health",
     ),
     ServiceName.EVAL.value: (
-        get_service_url(
-            ServiceName.EVAL.value
-        ),
+        get_service_url(ServiceName.EVAL.value),
         "/health",
     ),
 }
@@ -123,9 +103,7 @@ SERVICE_HEALTH_TARGETS = {
 # Runtime State
 # =============================================================================
 
-RECENT_QUERIES: deque[dict[str, Any]] = deque(
-    maxlen=50
-)
+RECENT_QUERIES: deque[dict[str, Any]] = deque(maxlen=50)
 
 
 # =============================================================================
@@ -147,14 +125,13 @@ app = FastAPI(
 # Helpers
 # =============================================================================
 
+
 def _utc_timestamp() -> str:
     """
     Return a timezone-aware UTC timestamp.
     """
 
-    return datetime.now(
-        timezone.utc
-    ).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _record_query(
@@ -176,10 +153,7 @@ def _record_query(
             "timestamp": _utc_timestamp(),
             "query": query,
             "document_id": document_id,
-            "scope": (
-                document_id
-                or "corpus-wide"
-            ),
+            "scope": (document_id or "corpus-wide"),
             "answer_type": answer_type,
             "latency_ms": latency_ms,
             "status": status,
@@ -205,21 +179,14 @@ async def _check_service_health(
     started = time.perf_counter()
 
     try:
-        response = await client.get(
-            url
-        )
+        response = await client.get(url)
 
         latency_ms = round(
-            (
-                time.perf_counter()
-                - started
-            )
-            * 1000,
+            (time.perf_counter() - started) * 1000,
             2,
         )
 
         if response.status_code == 200:
-
             try:
                 payload = response.json()
 
@@ -242,20 +209,13 @@ async def _check_service_health(
                 "status": "unhealthy",
                 "url": base_url,
                 "latency_ms": latency_ms,
-                "http_status": (
-                    response.status_code
-                ),
+                "http_status": (response.status_code),
             },
         )
 
     except httpx.TimeoutException:
-
         latency_ms = round(
-            (
-                time.perf_counter()
-                - started
-            )
-            * 1000,
+            (time.perf_counter() - started) * 1000,
             2,
         )
 
@@ -269,13 +229,8 @@ async def _check_service_health(
         )
 
     except httpx.RequestError:
-
         latency_ms = round(
-            (
-                time.perf_counter()
-                - started
-            )
-            * 1000,
+            (time.perf_counter() - started) * 1000,
             2,
         )
 
@@ -303,11 +258,7 @@ def _raise_and_record(
     """
 
     latency_ms = round(
-        (
-            time.perf_counter()
-            - start_time
-        )
-        * 1000,
+        (time.perf_counter() - start_time) * 1000,
         2,
     )
 
@@ -348,38 +299,25 @@ def _parse_processed_document(
         response_data = response.json()
 
     except ValueError as exc:
-
-        logger.error(
-            "Document Processor returned malformed JSON."
-        )
+        logger.error("Document Processor returned malformed JSON.")
 
         raise HTTPException(
             status_code=502,
-            detail=(
-                "Document Processor returned "
-                "malformed JSON."
-            ),
+            detail=("Document Processor returned malformed JSON."),
         ) from exc
 
     try:
-        return ProcessPdfResponse(
-            **response_data
-        )
+        return ProcessPdfResponse(**response_data)
 
-    except Exception as exc:  # noqa: BLE001
-
+    except Exception as exc:
         logger.error(
-            "Document Processor response "
-            "does not match ProcessPdfResponse: %s",
+            "Document Processor response does not match ProcessPdfResponse: %s",
             exc,
         )
 
         raise HTTPException(
             status_code=502,
-            detail=(
-                "Document Processor returned "
-                "an invalid document structure."
-            ),
+            detail=("Document Processor returned an invalid document structure."),
         ) from exc
 
 
@@ -400,11 +338,7 @@ def _document_processor_error(
     try:
         backend_payload = response.json()
 
-        backend_detail = (
-            backend_payload.get(
-                "detail"
-            )
-        )
+        backend_detail = backend_payload.get("detail")
 
     except ValueError:
         backend_detail = None
@@ -412,11 +346,7 @@ def _document_processor_error(
     raise HTTPException(
         status_code=502,
         detail=(
-            backend_detail
-            or (
-                "Document Processor failed "
-                "while processing the PDF."
-            )
+            backend_detail or ("Document Processor failed while processing the PDF.")
         ),
     )
 
@@ -424,6 +354,7 @@ def _document_processor_error(
 # =============================================================================
 # Orchestrator Health
 # =============================================================================
+
 
 @app.get("/health")
 def health_check():
@@ -433,9 +364,7 @@ def health_check():
 
     return {
         "status": "healthy",
-        "service": (
-            ServiceName.ORCHESTRATOR.value
-        ),
+        "service": (ServiceName.ORCHESTRATOR.value),
         "port": 8001,
     }
 
@@ -443,6 +372,7 @@ def health_check():
 # =============================================================================
 # Backend Service Health
 # =============================================================================
+
 
 @app.get("/services/health")
 async def services_health():
@@ -453,10 +383,7 @@ async def services_health():
     endpoint itself fail.
     """
 
-    async with httpx.AsyncClient(
-        timeout=2.5
-    ) as client:
-
+    async with httpx.AsyncClient(timeout=2.5) as client:
         tasks = [
             _check_service_health(
                 client=client,
@@ -470,27 +397,15 @@ async def services_health():
             ) in SERVICE_HEALTH_TARGETS.items()
         ]
 
-        service_results = (
-            await asyncio.gather(
-                *tasks
-            )
-        )
+        service_results = await asyncio.gather(*tasks)
 
-    services = {
-        service_name: result
-        for service_name, result
-        in service_results
-    }
+    services = {service_name: result for service_name, result in service_results}
 
     healthy_count = sum(
-        1
-        for result in services.values()
-        if result["status"] == "healthy"
+        1 for result in services.values() if result["status"] == "healthy"
     )
 
-    total_count = len(
-        services
-    )
+    total_count = len(services)
 
     if healthy_count == total_count:
         overall_status = "healthy"
@@ -505,9 +420,7 @@ async def services_health():
         "overall_status": overall_status,
         "orchestrator": {
             "status": "healthy",
-            "url": get_service_url(
-                ServiceName.ORCHESTRATOR.value
-            ),
+            "url": get_service_url(ServiceName.ORCHESTRATOR.value),
         },
         "healthy_services": healthy_count,
         "total_services": total_count,
@@ -518,6 +431,7 @@ async def services_health():
 # =============================================================================
 # Recent Queries
 # =============================================================================
+
 
 @app.get("/recent-queries")
 def recent_queries(
@@ -537,27 +451,16 @@ def recent_queries(
         ),
     )
 
-    records = list(
-        RECENT_QUERIES
-    )[:safe_limit]
+    records = list(RECENT_QUERIES)[:safe_limit]
 
     successful_queries = [
-        item
-        for item in RECENT_QUERIES
-        if item["status"] == "success"
+        item for item in RECENT_QUERIES if item["status"] == "success"
     ]
 
     if successful_queries:
-
         average_latency_ms = round(
-            sum(
-                item["latency_ms"]
-                for item
-                in successful_queries
-            )
-            / len(
-                successful_queries
-            ),
+            sum(item["latency_ms"] for item in successful_queries)
+            / len(successful_queries),
             2,
         )
 
@@ -565,15 +468,9 @@ def recent_queries(
         average_latency_ms = 0.0
 
     return {
-        "total_recorded": len(
-            RECENT_QUERIES
-        ),
-        "successful_queries": len(
-            successful_queries
-        ),
-        "average_latency_ms": (
-            average_latency_ms
-        ),
+        "total_recorded": len(RECENT_QUERIES),
+        "successful_queries": len(successful_queries),
+        "average_latency_ms": (average_latency_ms),
         "queries": records,
     }
 
@@ -581,6 +478,7 @@ def recent_queries(
 # =============================================================================
 # Document Processing Gateway — Path-based
 # =============================================================================
+
 
 @app.post(
     "/documents/process",
@@ -597,8 +495,7 @@ async def process_document(
     """
 
     logger.info(
-        "Document processing requested "
-        "pdf_path='%s' document_id='%s'",
+        "Document processing requested pdf_path='%s' document_id='%s'",
         request.pdf_path,
         request.document_id,
     )
@@ -606,71 +503,47 @@ async def process_document(
     started = time.perf_counter()
 
     try:
-        async with httpx.AsyncClient(
-            timeout=180.0
-        ) as client:
-
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
                 DOC_PROCESSOR_URL,
                 json=request.model_dump(),
             )
 
     except httpx.TimeoutException as exc:
-
         logger.error(
-            "Document Processor timed out "
-            "while processing '%s'.",
+            "Document Processor timed out while processing '%s'.",
             request.pdf_path,
         )
 
         raise HTTPException(
             status_code=504,
-            detail=(
-                "Document Processor timed out "
-                "while processing the PDF."
-            ),
+            detail=("Document Processor timed out while processing the PDF."),
         ) from exc
 
     except httpx.RequestError as exc:
-
         logger.error(
-            "Could not reach Document Processor "
-            "at %s: %s",
+            "Could not reach Document Processor at %s: %s",
             DOC_PROCESSOR_URL,
             exc,
         )
 
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Document Processor service "
-                "is currently unavailable."
-            ),
+            detail=("Document Processor service is currently unavailable."),
         ) from exc
 
     if response.status_code != 200:
-        _document_processor_error(
-            response
-        )
+        _document_processor_error(response)
 
-    processed_document = (
-        _parse_processed_document(
-            response
-        )
-    )
+    processed_document = _parse_processed_document(response)
 
     elapsed_ms = round(
-        (
-            time.perf_counter()
-            - started
-        )
-        * 1000,
+        (time.perf_counter() - started) * 1000,
         2,
     )
 
     logger.info(
-        "Processed document '%s': "
-        "%s page(s), %s block(s), %.2f ms",
+        "Processed document '%s': %s page(s), %s block(s), %.2f ms",
         processed_document.document_id,
         processed_document.total_pages,
         processed_document.total_blocks,
@@ -684,13 +557,14 @@ async def process_document(
 # Document Processing Gateway — File Upload
 # =============================================================================
 
+
 @app.post(
     "/documents/upload",
     response_model=ProcessPdfResponse,
 )
 async def upload_document(
-    file: UploadFile = File(...),
-    document_id: str | None = Form(None),
+    file: Annotated[UploadFile, File(...)],
+    document_id: Annotated[str | None, Form()] = None,
 ):
     """
     Accept a raw PDF upload and forward it to
@@ -720,23 +594,14 @@ async def upload_document(
     # Validate file
     # -------------------------------------------------------------------------
 
-    if (
-        not file.filename
-        or not file.filename.lower().endswith(
-            ".pdf"
-        )
-    ):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Uploaded file must be "
-                "a valid .pdf document."
-            ),
+            detail=("Uploaded file must be a valid .pdf document."),
         )
 
     logger.info(
-        "PDF upload requested "
-        "filename='%s' document_id='%s'",
+        "PDF upload requested filename='%s' document_id='%s'",
         file.filename,
         document_id,
     )
@@ -750,8 +615,7 @@ async def upload_document(
     try:
         file_bytes = await file.read()
 
-    except Exception as exc:  # noqa: BLE001
-
+    except Exception as exc:
         logger.error(
             "Could not read uploaded PDF '%s': %s",
             file.filename,
@@ -760,18 +624,13 @@ async def upload_document(
 
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Could not read the uploaded PDF."
-            ),
+            detail=("Could not read the uploaded PDF."),
         ) from exc
 
     if not file_bytes:
-
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Uploaded PDF is empty."
-            ),
+            detail=("Uploaded PDF is empty."),
         )
 
     # -------------------------------------------------------------------------
@@ -782,29 +641,21 @@ async def upload_document(
         "file": (
             file.filename,
             file_bytes,
-            (
-                file.content_type
-                or "application/pdf"
-            ),
+            (file.content_type or "application/pdf"),
         )
     }
 
     form_data: dict[str, str] = {}
 
     if document_id:
-        form_data["document_id"] = (
-            document_id
-        )
+        form_data["document_id"] = document_id
 
     # -------------------------------------------------------------------------
     # Forward upload
     # -------------------------------------------------------------------------
 
     try:
-        async with httpx.AsyncClient(
-            timeout=180.0
-        ) as client:
-
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
                 DOC_PROCESSOR_UPLOAD_URL,
                 files=files,
@@ -812,36 +663,26 @@ async def upload_document(
             )
 
     except httpx.TimeoutException as exc:
-
         logger.error(
-            "Document Processor timed out "
-            "while processing uploaded PDF '%s'.",
+            "Document Processor timed out while processing uploaded PDF '%s'.",
             file.filename,
         )
 
         raise HTTPException(
             status_code=504,
-            detail=(
-                "Document Processor timed out "
-                "while processing the uploaded PDF."
-            ),
+            detail=("Document Processor timed out while processing the uploaded PDF."),
         ) from exc
 
     except httpx.RequestError as exc:
-
         logger.error(
-            "Could not reach Document Processor "
-            "upload endpoint at %s: %s",
+            "Could not reach Document Processor upload endpoint at %s: %s",
             DOC_PROCESSOR_UPLOAD_URL,
             exc,
         )
 
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Document Processor service "
-                "is currently unavailable."
-            ),
+            detail=("Document Processor service is currently unavailable."),
         ) from exc
 
     # -------------------------------------------------------------------------
@@ -849,32 +690,21 @@ async def upload_document(
     # -------------------------------------------------------------------------
 
     if response.status_code != 200:
-        _document_processor_error(
-            response
-        )
+        _document_processor_error(response)
 
     # -------------------------------------------------------------------------
     # Validate ProcessPdfResponse
     # -------------------------------------------------------------------------
 
-    processed_document = (
-        _parse_processed_document(
-            response
-        )
-    )
+    processed_document = _parse_processed_document(response)
 
     elapsed_ms = round(
-        (
-            time.perf_counter()
-            - started
-        )
-        * 1000,
+        (time.perf_counter() - started) * 1000,
         2,
     )
 
     logger.info(
-        "Uploaded and processed document '%s': "
-        "%s page(s), %s block(s), %.2f ms",
+        "Uploaded and processed document '%s': %s page(s), %s block(s), %.2f ms",
         processed_document.document_id,
         processed_document.total_pages,
         processed_document.total_blocks,
@@ -887,6 +717,7 @@ async def upload_document(
 # =============================================================================
 # Main Question Endpoint
 # =============================================================================
+
 
 @app.post(
     "/ask",
@@ -917,52 +748,34 @@ async def ask_question(
     cannot validate it.
     """
 
-    start_time = (
-        time.perf_counter()
-    )
+    start_time = time.perf_counter()
 
-    trace_id = str(
-        uuid.uuid4()
-    )
+    trace_id = str(uuid.uuid4())
 
-    scope = (
-        request.document_id
-        or "corpus-wide"
-    )
+    scope = request.document_id or "corpus-wide"
 
     logger.info(
-        "Received query='%s' "
-        "scope='%s' "
-        "session_id='%s' "
-        "trace_id='%s'",
+        "Received query='%s' scope='%s' session_id='%s' trace_id='%s'",
         request.query,
         scope,
         request.session_id,
         trace_id,
     )
 
-    candidate_answer_type: (
-        str | None
-    ) = None
+    candidate_answer_type: str | None = None
 
     # =========================================================================
     # STEP 1 — Agent
     # =========================================================================
 
     try:
-        async with httpx.AsyncClient(
-            timeout=60.0
-        ) as client:
-
-            agent_response = (
-                await client.post(
-                    AGENT_URL,
-                    json=request.model_dump(),
-                )
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            agent_response = await client.post(
+                AGENT_URL,
+                json=request.model_dump(),
             )
 
     except httpx.TimeoutException as exc:
-
         logger.error(
             "Agent service timed out: %s",
             exc,
@@ -970,37 +783,28 @@ async def ask_question(
 
         _raise_and_record(
             status_code=504,
-            detail=(
-                "Agent service timed out "
-                "while processing the question."
-            ),
+            detail=("Agent service timed out while processing the question."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
         )
 
     except httpx.RequestError as exc:
-
         logger.error(
-            "Could not connect to Agent "
-            "at %s: %s",
+            "Could not connect to Agent at %s: %s",
             AGENT_URL,
             exc,
         )
 
         _raise_and_record(
             status_code=503,
-            detail=(
-                "Agent service is currently "
-                "unavailable."
-            ),
+            detail=("Agent service is currently unavailable."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
         )
 
     if agent_response.status_code != 200:
-
         logger.error(
             "Agent returned HTTP %s: %s",
             agent_response.status_code,
@@ -1009,10 +813,7 @@ async def ask_question(
 
         _raise_and_record(
             status_code=502,
-            detail=(
-                "Agent service failed while "
-                "generating a candidate answer."
-            ),
+            detail=("Agent service failed while generating a candidate answer."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
@@ -1023,12 +824,9 @@ async def ask_question(
     # =========================================================================
 
     try:
-        candidate_answer = (
-            agent_response.json()
-        )
+        candidate_answer = agent_response.json()
 
     except ValueError:
-
         logger.error(
             "Agent returned invalid JSON: %s",
             agent_response.text,
@@ -1036,10 +834,7 @@ async def ask_question(
 
         _raise_and_record(
             status_code=502,
-            detail=(
-                "Agent service returned "
-                "malformed JSON."
-            ),
+            detail=("Agent service returned malformed JSON."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
@@ -1049,66 +844,42 @@ async def ask_question(
         candidate_answer,
         dict,
     ):
-
         logger.error(
-            "Agent response must be an object. "
-            "Received: %s",
-            type(
-                candidate_answer
-            ).__name__,
+            "Agent response must be an object. Received: %s",
+            type(candidate_answer).__name__,
         )
 
         _raise_and_record(
             status_code=502,
-            detail=(
-                "Agent service returned an "
-                "invalid answer structure."
-            ),
+            detail=("Agent service returned an invalid answer structure."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
         )
 
-    candidate_answer_type = (
-        candidate_answer.get(
-            "answer_type"
-        )
-    )
+    candidate_answer_type = candidate_answer.get("answer_type")
 
     logger.info(
-        "Agent produced candidate "
-        "answer type='%s'",
-        candidate_answer_type
-        or "unknown",
+        "Agent produced candidate answer type='%s'",
+        candidate_answer_type or "unknown",
     )
 
     # =========================================================================
     # STEP 3 — Mandatory Validator Gate
     # =========================================================================
 
-    validation_payload = (
-        ValidationRequest(
-            answer=candidate_answer,
-        )
+    validation_payload = ValidationRequest(
+        answer=candidate_answer,
     )
 
     try:
-        async with httpx.AsyncClient(
-            timeout=10.0
-        ) as client:
-
-            validator_response = (
-                await client.post(
-                    VALIDATOR_URL,
-                    json=(
-                        validation_payload
-                        .model_dump()
-                    ),
-                )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            validator_response = await client.post(
+                VALIDATOR_URL,
+                json=(validation_payload.model_dump()),
             )
 
     except httpx.TimeoutException as exc:
-
         logger.error(
             "Answer Validator timed out: %s",
             exc,
@@ -1116,22 +887,16 @@ async def ask_question(
 
         _raise_and_record(
             status_code=504,
-            detail=(
-                "Answer validator timed out."
-            ),
+            detail=("Answer validator timed out."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     except httpx.RequestError as exc:
-
         logger.error(
-            "Could not reach Answer Validator "
-            "at %s: %s",
+            "Could not reach Answer Validator at %s: %s",
             VALIDATOR_URL,
             exc,
         )
@@ -1139,20 +904,15 @@ async def ask_question(
         _raise_and_record(
             status_code=503,
             detail=(
-                "Answer validator is unavailable. "
-                "The answer cannot safely "
-                "be returned."
+                "Answer validator is unavailable. The answer cannot safely be returned."
             ),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     if validator_response.status_code != 200:
-
         logger.error(
             "Validator returned HTTP %s: %s",
             validator_response.status_code,
@@ -1161,15 +921,11 @@ async def ask_question(
 
         _raise_and_record(
             status_code=502,
-            detail=(
-                "Answer validator service failed."
-            ),
+            detail=("Answer validator service failed."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     # =========================================================================
@@ -1177,14 +933,9 @@ async def ask_question(
     # =========================================================================
 
     try:
-        validation_result = (
-            ValidationResponse(
-                **validator_response.json()
-            )
-        )
+        validation_result = ValidationResponse(**validator_response.json())
 
     except Exception:  # noqa: BLE001
-
         logger.error(
             "Malformed validator response: %s",
             validator_response.text,
@@ -1192,16 +943,11 @@ async def ask_question(
 
         _raise_and_record(
             status_code=502,
-            detail=(
-                "Validator returned an "
-                "invalid response."
-            ),
+            detail=("Validator returned an invalid response."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     # =========================================================================
@@ -1209,7 +955,6 @@ async def ask_question(
     # =========================================================================
 
     if not validation_result.is_valid:
-
         logger.error(
             "Candidate answer rejected: %s",
             validation_result.error,
@@ -1218,20 +963,13 @@ async def ask_question(
         _raise_and_record(
             status_code=422,
             detail={
-                "message": (
-                    "Generated answer "
-                    "failed validation."
-                ),
-                "reason": (
-                    validation_result.error
-                ),
+                "message": ("Generated answer failed validation."),
+                "reason": (validation_result.error),
             },
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     logger.info(
@@ -1244,30 +982,21 @@ async def ask_question(
     # =========================================================================
 
     try:
-        final_answer = StrictAnswer(
-            **candidate_answer
-        )
+        final_answer = StrictAnswer(**candidate_answer)
 
     except Exception as exc:  # noqa: BLE001
-
         logger.error(
-            "Validated answer could not "
-            "be parsed locally: %s",
+            "Validated answer could not be parsed locally: %s",
             exc,
         )
 
         _raise_and_record(
             status_code=500,
-            detail=(
-                "Validated answer could "
-                "not be parsed."
-            ),
+            detail=("Validated answer could not be parsed."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,
-            answer_type=(
-                candidate_answer_type
-            ),
+            answer_type=(candidate_answer_type),
         )
 
     # =========================================================================
@@ -1275,17 +1004,12 @@ async def ask_question(
     # =========================================================================
 
     latency_ms = round(
-        (
-            time.perf_counter()
-            - start_time
-        )
-        * 1000,
+        (time.perf_counter() - start_time) * 1000,
         2,
     )
 
     logger.info(
-        "Query completed successfully "
-        "in %.2f ms trace_id='%s'",
+        "Query completed successfully in %.2f ms trace_id='%s'",
         latency_ms,
         trace_id,
     )
@@ -1294,9 +1018,7 @@ async def ask_question(
         query=request.query,
         document_id=request.document_id,
         trace_id=trace_id,
-        answer_type=(
-            final_answer.answer_type
-        ),
+        answer_type=(final_answer.answer_type),
         latency_ms=latency_ms,
         status="success",
     )
