@@ -90,3 +90,6 @@ logs/
 *.pid
 scratch/
 .system_generated/
+
+# --- Local Hugging Face Models ---
+models/
