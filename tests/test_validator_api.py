@@ -9,6 +9,7 @@ strings), and the /calculate endpoint's safe arithmetic sandboxing.
 """
 
 import logging
+
 import pytest
 
 

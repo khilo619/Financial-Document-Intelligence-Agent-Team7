@@ -4,11 +4,10 @@ These schemas serve as the single source of truth across all 7 microservices.
 """
 
 import math
-import simpleeval
-
 from enum import Enum
 from typing import Any, Literal
 
+import simpleeval
 from pydantic import BaseModel, Field, model_validator
 
 # ==============================================================================

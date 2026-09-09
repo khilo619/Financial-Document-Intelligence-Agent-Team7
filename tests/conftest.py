@@ -9,6 +9,7 @@ no imports needed elsewhere.
 
 import pytest
 from fastapi.testclient import TestClient
+
 from services.answer_validator_api.src.main import app
 
 
