@@ -17,10 +17,15 @@ volumes:
   qdrant_data:
     name: ledger_qdrant_data
 
+  # Persistent local model volume.
+  # Models are stored once outside the Retrieval API image.
+  models:
+    name: ledger_models
+
   # Kept temporarily for backward compatibility.
-  # Retrieval API now uses local host-mounted models instead.
   huggingface_cache:
     name: ledger_huggingface_cache
+
 
 services:
 
@@ -111,8 +116,24 @@ services:
     environment:
       - DOC_PROCESSOR_PORT=8002
 
+    volumes:
+      # Mount TAT-DQA PDFs and processed output from the host.
+      - ./data/tat_dqa:/data/tat_dqa
+
     networks:
       - ledger-network
+
+    # --------------------------------------------------------------------------
+    # NVIDIA GPU access
+    # --------------------------------------------------------------------------
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+                - gpu
 
     healthcheck:
       test:
@@ -148,6 +169,7 @@ services:
     environment:
       - RETRIEVAL_PORT=8003
       - QDRANT_HOST=qdrant
+      - QDRANT_COLLECTION_NAME=ledger_documents_processed
 
       # ------------------------------------------------------------------------
       # Local embedding model
@@ -167,13 +189,16 @@ services:
       - TRANSFORMERS_OFFLINE=1
 
     # --------------------------------------------------------------------------
-    # Local persistent models
-    #
-    # Models are downloaded once on the host and mounted read-only
-    # into the container.
+    # Persistent local models + processed documents
     # --------------------------------------------------------------------------
     volumes:
-      - ./models/huggingface:/models/huggingface:ro
+      # Models are stored once in the Docker named volume
+      # ledger_models and mounted read-only into the container.
+      - models:/models/huggingface:ro
+
+      # Mount Zeina's processed output so Retrieval can index it.
+      # Read-only because Retrieval should not modify preprocessing output.
+      - ./data/tat_dqa:/data/tat_dqa:ro
 
     # --------------------------------------------------------------------------
     # NVIDIA GPU access

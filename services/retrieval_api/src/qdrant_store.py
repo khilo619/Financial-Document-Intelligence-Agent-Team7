@@ -21,7 +21,11 @@ class QdrantStore:
     Handles storing document embeddings in Qdrant.
     """
 
-    COLLECTION_NAME = "ledger_documents"
+    COLLECTION_NAME = os.getenv(
+        "QDRANT_COLLECTION_NAME",
+        "ledger_documents",
+    )
+
     VECTOR_SIZE = 1024
 
     def __init__(self):
@@ -89,6 +93,28 @@ class QdrantStore:
             )
 
     # =========================================================
+    # Point ID generation
+    # =========================================================
+
+    @staticmethod
+    def _generate_point_id(block: DocumentBlock) -> str:
+        """
+        Generate a deterministic and globally unique Qdrant point ID.
+
+        block_id alone is NOT globally unique across the processed
+        TAT-DQA dataset, so document_id is included as well.
+        """
+
+        unique_key = f"{block.document_id}:{block.block_id}"
+
+        return str(
+            uuid.uuid5(
+                uuid.NAMESPACE_DNS,
+                unique_key,
+            )
+        )
+
+    # =========================================================
     # Single-block indexing
     # =========================================================
 
@@ -110,15 +136,10 @@ class QdrantStore:
         vector = self.embedder.encode(text)
 
         # -----------------------------------------------------
-        # Deterministic Qdrant point ID
+        # Generate unique deterministic point ID
         # -----------------------------------------------------
 
-        point_id = str(
-            uuid.uuid5(
-                uuid.NAMESPACE_DNS,
-                block.block_id,
-            )
-        )
+        point_id = self._generate_point_id(block)
 
         # -----------------------------------------------------
         # Qdrant payload
@@ -218,12 +239,11 @@ class QdrantStore:
                 batch,
                 vectors,
             ):
-                point_id = str(
-                    uuid.uuid5(
-                        uuid.NAMESPACE_DNS,
-                        block.block_id,
-                    )
-                )
+                # ---------------------------------------------
+                # Generate unique deterministic point ID
+                # ---------------------------------------------
+
+                point_id = self._generate_point_id(block)
 
                 payload = {
                     "chunk_id": block.block_id,
