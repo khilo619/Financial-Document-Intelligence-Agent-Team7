@@ -1,13 +1,19 @@
-import requests
-from langchain_core.tools import tool
 import ast
 import operator
-from shared.config import get_service_url, ServiceName
-from langchain_openai import ChatOpenAI
-from shared.config import DEFAULT_LLM_MODEL, DEFAULT_LLM_TEMPERATURE
-from shared.models import DecompositionResult
-from .prompts import DECOMPOSE_PROMPT
 
+import requests
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+
+from shared.config import (
+    DEFAULT_LLM_MODEL,
+    DEFAULT_LLM_TEMPERATURE,
+    ServiceName,
+    get_service_url,
+)
+from shared.models import DecompositionResult
+
+from .prompts import DECOMPOSE_PROMPT
 
 RETRIEVAL_API_URL = (
     f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"

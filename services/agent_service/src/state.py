@@ -1,6 +1,7 @@
-from typing import TypedDict, Any
+from typing import Annotated, Any, TypedDict
+
 from langgraph.graph.message import add_messages
-from typing_extensions import Annotated
+
 from shared.models import StrictAnswer
 
 

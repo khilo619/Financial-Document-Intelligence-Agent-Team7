@@ -1,24 +1,22 @@
 import json
+
 import requests
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
-from shared.models import StrictAnswer
-from .prompts import (
-    SYSTEM_PROMPT,
-    FINALIZE_PROMPT,
-    REPAIR_PROMPT
-)
 from langchain_core.messages import ToolMessage
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import ToolNode
+
 from shared.config import (
-    get_service_url,
-    ServiceName,
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_TEMPERATURE,
+    ServiceName,
+    get_service_url,
 )
+from shared.models import StrictAnswer
+
+from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
-
 
 ANSWER_VALIDATOR_URL = (
     f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
