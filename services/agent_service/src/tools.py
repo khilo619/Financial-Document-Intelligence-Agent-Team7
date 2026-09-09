@@ -1,6 +1,8 @@
 import ast
 import operator
 
+import requests
+from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
 from shared.config import (
@@ -12,7 +14,6 @@ from shared.config import (
 from shared.models import DecompositionResult
 
 from .prompts import DECOMPOSE_PROMPT
-
 
 RETRIEVAL_API_URL = (
     f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
