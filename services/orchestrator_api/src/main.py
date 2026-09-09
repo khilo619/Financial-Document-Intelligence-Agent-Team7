@@ -7,10 +7,11 @@ Responsibilities:
 - Send every candidate answer to the answer validator.
 - Return only validated answers to the caller.
 - Route document-processing requests to doc-processor-api.
+- Accept raw PDF uploads and forward them to doc-processor-api.
 - Monitor backend service health for the UI dashboard.
 - Track recent queries and their latency.
 
-Owned by Ahmed .
+Owned by Ahmed.
 """
 
 from __future__ import annotations
@@ -24,7 +25,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 
 from shared.config import ServiceName, get_service_url
 from shared.models import (
@@ -66,6 +73,11 @@ VALIDATOR_URL = (
 DOC_PROCESSOR_URL = (
     f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}"
     "/process_pdf"
+)
+
+DOC_PROCESSOR_UPLOAD_URL = (
+    f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}"
+    "/upload_pdf"
 )
 
 
@@ -127,7 +139,7 @@ app = FastAPI(
         "reasoning agent, document processor, "
         "answer validator and supporting services."
     ),
-    version="1.2.0",
+    version="1.3.0",
 )
 
 
@@ -324,6 +336,91 @@ def _raise_and_record(
     )
 
 
+def _parse_processed_document(
+    response: httpx.Response,
+) -> ProcessPdfResponse:
+    """
+    Validate a successful Document Processor response
+    against the shared ProcessPdfResponse schema.
+    """
+
+    try:
+        response_data = response.json()
+
+    except ValueError as exc:
+
+        logger.error(
+            "Document Processor returned malformed JSON."
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Document Processor returned "
+                "malformed JSON."
+            ),
+        ) from exc
+
+    try:
+        return ProcessPdfResponse(
+            **response_data
+        )
+
+    except Exception as exc:  # noqa: BLE001
+
+        logger.error(
+            "Document Processor response "
+            "does not match ProcessPdfResponse: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Document Processor returned "
+                "an invalid document structure."
+            ),
+        ) from exc
+
+
+def _document_processor_error(
+    response: httpx.Response,
+) -> None:
+    """
+    Convert a failed Document Processor response
+    into an Orchestrator HTTP error.
+    """
+
+    logger.error(
+        "Document Processor returned HTTP %s: %s",
+        response.status_code,
+        response.text,
+    )
+
+    try:
+        backend_payload = response.json()
+
+        backend_detail = (
+            backend_payload.get(
+                "detail"
+            )
+        )
+
+    except ValueError:
+        backend_detail = None
+
+    raise HTTPException(
+        status_code=502,
+        detail=(
+            backend_detail
+            or (
+                "Document Processor failed "
+                "while processing the PDF."
+            )
+        ),
+    )
+
+
 # =============================================================================
 # Orchestrator Health
 # =============================================================================
@@ -482,7 +579,7 @@ def recent_queries(
 
 
 # =============================================================================
-# Document Processing Gateway
+# Document Processing Gateway — Path-based
 # =============================================================================
 
 @app.post(
@@ -493,23 +590,10 @@ async def process_document(
     request: ProcessPdfRequest,
 ):
     """
-    Forward one raw financial PDF to doc-processor-api.
+    Forward a PDF path to doc-processor-api.
 
-    Flow:
-
-        UI
-         ↓
-        Orchestrator
-         ↓
-        Document Processor
-         ↓
-        Structured PDF Representation
-         ↓
-        Orchestrator
-         ↓
-        UI
-
-    The orchestrator does not perform OCR itself.
+    This endpoint remains useful when the services
+    share the same filesystem or mounted volume.
     """
 
     logger.info(
@@ -565,76 +649,15 @@ async def process_document(
         ) from exc
 
     if response.status_code != 200:
-
-        logger.error(
-            "Document Processor returned HTTP %s: %s",
-            response.status_code,
-            response.text,
+        _document_processor_error(
+            response
         )
 
-        # Try to retain the useful backend reason.
-        try:
-            backend_payload = response.json()
-
-            backend_detail = (
-                backend_payload.get(
-                    "detail"
-                )
-            )
-
-        except ValueError:
-            backend_detail = None
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                backend_detail
-                or (
-                    "Document Processor failed "
-                    "while processing the PDF."
-                )
-            ),
+    processed_document = (
+        _parse_processed_document(
+            response
         )
-
-    try:
-        response_data = response.json()
-
-    except ValueError as exc:
-
-        logger.error(
-            "Document Processor returned malformed JSON."
-        )
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Document Processor returned "
-                "malformed JSON."
-            ),
-        ) from exc
-
-    try:
-        processed_document = (
-            ProcessPdfResponse(
-                **response_data
-            )
-        )
-
-    except Exception as exc:  # noqa: BLE001
-
-        logger.error(
-            "Document Processor response "
-            "does not match ProcessPdfResponse: %s",
-            exc,
-        )
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Document Processor returned "
-                "an invalid document structure."
-            ),
-        ) from exc
+    )
 
     elapsed_ms = round(
         (
@@ -647,6 +670,210 @@ async def process_document(
 
     logger.info(
         "Processed document '%s': "
+        "%s page(s), %s block(s), %.2f ms",
+        processed_document.document_id,
+        processed_document.total_pages,
+        processed_document.total_blocks,
+        elapsed_ms,
+    )
+
+    return processed_document
+
+
+# =============================================================================
+# Document Processing Gateway — File Upload
+# =============================================================================
+
+@app.post(
+    "/documents/upload",
+    response_model=ProcessPdfResponse,
+)
+async def upload_document(
+    file: UploadFile = File(...),
+    document_id: str | None = Form(None),
+):
+    """
+    Accept a raw PDF upload and forward it to
+    doc-processor-api /upload_pdf.
+
+    Flow:
+
+        UI / Client
+            ↓ multipart PDF
+        Orchestrator
+            ↓ multipart PDF
+        Document Processor
+            ↓
+        OCR / Layout / Table Extraction
+            ↓
+        ProcessPdfResponse
+            ↓
+        Orchestrator
+            ↓
+        UI / Client
+
+    This avoids relying on a local filesystem path
+    shared between different services.
+    """
+
+    # -------------------------------------------------------------------------
+    # Validate file
+    # -------------------------------------------------------------------------
+
+    if (
+        not file.filename
+        or not file.filename.lower().endswith(
+            ".pdf"
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Uploaded file must be "
+                "a valid .pdf document."
+            ),
+        )
+
+    logger.info(
+        "PDF upload requested "
+        "filename='%s' document_id='%s'",
+        file.filename,
+        document_id,
+    )
+
+    started = time.perf_counter()
+
+    # -------------------------------------------------------------------------
+    # Read uploaded PDF
+    # -------------------------------------------------------------------------
+
+    try:
+        file_bytes = await file.read()
+
+    except Exception as exc:  # noqa: BLE001
+
+        logger.error(
+            "Could not read uploaded PDF '%s': %s",
+            file.filename,
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Could not read the uploaded PDF."
+            ),
+        ) from exc
+
+    if not file_bytes:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Uploaded PDF is empty."
+            ),
+        )
+
+    # -------------------------------------------------------------------------
+    # Prepare multipart request for Document Processor
+    # -------------------------------------------------------------------------
+
+    files = {
+        "file": (
+            file.filename,
+            file_bytes,
+            (
+                file.content_type
+                or "application/pdf"
+            ),
+        )
+    }
+
+    form_data: dict[str, str] = {}
+
+    if document_id:
+        form_data["document_id"] = (
+            document_id
+        )
+
+    # -------------------------------------------------------------------------
+    # Forward upload
+    # -------------------------------------------------------------------------
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=180.0
+        ) as client:
+
+            response = await client.post(
+                DOC_PROCESSOR_UPLOAD_URL,
+                files=files,
+                data=form_data,
+            )
+
+    except httpx.TimeoutException as exc:
+
+        logger.error(
+            "Document Processor timed out "
+            "while processing uploaded PDF '%s'.",
+            file.filename,
+        )
+
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                "Document Processor timed out "
+                "while processing the uploaded PDF."
+            ),
+        ) from exc
+
+    except httpx.RequestError as exc:
+
+        logger.error(
+            "Could not reach Document Processor "
+            "upload endpoint at %s: %s",
+            DOC_PROCESSOR_UPLOAD_URL,
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Document Processor service "
+                "is currently unavailable."
+            ),
+        ) from exc
+
+    # -------------------------------------------------------------------------
+    # Downstream HTTP error
+    # -------------------------------------------------------------------------
+
+    if response.status_code != 200:
+        _document_processor_error(
+            response
+        )
+
+    # -------------------------------------------------------------------------
+    # Validate ProcessPdfResponse
+    # -------------------------------------------------------------------------
+
+    processed_document = (
+        _parse_processed_document(
+            response
+        )
+    )
+
+    elapsed_ms = round(
+        (
+            time.perf_counter()
+            - started
+        )
+        * 1000,
+        2,
+    )
+
+    logger.info(
+        "Uploaded and processed document '%s': "
         "%s page(s), %s block(s), %.2f ms",
         processed_document.document_id,
         processed_document.total_pages,
@@ -694,9 +921,6 @@ async def ask_question(
         time.perf_counter()
     )
 
-    # Every request gets its own trace ID.
-    # session_id represents the conversation,
-    # while trace_id represents one execution.
     trace_id = str(
         uuid.uuid4()
     )
@@ -912,7 +1136,6 @@ async def ask_question(
             exc,
         )
 
-        # Fail closed.
         _raise_and_record(
             status_code=503,
             detail=(
