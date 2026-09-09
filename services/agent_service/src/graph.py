@@ -1,24 +1,22 @@
 import json
+
 import requests
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
-from shared.models import StrictAnswer
-from .prompts import (
-    SYSTEM_PROMPT,
-    FINALIZE_PROMPT,
-    REPAIR_PROMPT
-)
 from langchain_core.messages import ToolMessage
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import ToolNode
+
 from shared.config import (
-    get_service_url,
-    ServiceName,
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_TEMPERATURE,
+    ServiceName,
+    get_service_url,
 )
+from shared.models import StrictAnswer
+
+from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
-
 
 ANSWER_VALIDATOR_URL = (
     f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
@@ -31,12 +29,14 @@ llm = ChatOpenAI(
 
 # adding tools
 llm_with_tools = llm.bind_tools(tools)
-#-------------------------------------------------
-# tool node   
+# -------------------------------------------------
+# tool node
 tool_node = ToolNode(tools)
-#--------------------------------------------
+
+
+# --------------------------------------------
 # decomposition node
-#-------------------------------------------
+# -------------------------------------------
 def decompose(state: AgentState):
     last_message = state["messages"][-1]
 
@@ -45,21 +45,21 @@ def decompose(state: AgentState):
             {
                 "role": "assistant",
                 "content": (
-                "The original question has been decomposed into "
-                "the following sub-questions:\n\n"
-                + "\n".join(
-                    f"{i}. {question}"
-                    for i, question in enumerate(last_message.content, start=1)
-                )
-            ),
+                    "The original question has been decomposed into "
+                    "the following sub-questions:\n\n"
+                    + "\n".join(
+                        f"{i}. {question}"
+                        for i, question in enumerate(last_message.content, start=1)
+                    )
+                ),
             }
         ]
     }
 
 
-#--------------------------------------
+# --------------------------------------
 # reason node
-#-----------------------------------------
+# -----------------------------------------
 def reason(state: AgentState):
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -71,10 +71,11 @@ def reason(state: AgentState):
     return {
         "messages": [response],
     }
-    
-#-----------------------------------------------------
+
+
+# -----------------------------------------------------
 # router after reason node to :
-# finalize -end if direct query , else go to tools 
+# finalize -end if direct query , else go to tools
 def route_after_reason(state: AgentState):
     last_message = state["messages"][-1]
     tool_calls = getattr(last_message, "tool_calls", None)
@@ -83,7 +84,9 @@ def route_after_reason(state: AgentState):
         return "tools"
 
     return "end"
-#-----------------------------------------------
+
+
+# -----------------------------------------------
 # route after tools
 def route_after_tools(state: AgentState):
     last_message = state["messages"][-1]
@@ -100,7 +103,9 @@ def route_after_tools(state: AgentState):
             return "evidence"
 
     return "evidence"
-#--------------------------------------------
+
+
+# --------------------------------------------
 # evidence nood
 def collect_evidence(state: AgentState):
     evidence = state.get("evidence", [])
@@ -132,14 +137,15 @@ def collect_evidence(state: AgentState):
             if isinstance(results, list):
                 evidence.extend(results)
 
-    return {
-        "evidence": evidence
-    }
-#---------------------------------------------------
-# finalize nood 
+    return {"evidence": evidence}
+
+
+# ---------------------------------------------------
+# finalize nood
 
 # llm for structured output with strict Answer
 structured_llm = llm.with_structured_output(StrictAnswer)
+
 
 def finalize(state: AgentState):
     messages = [
@@ -152,7 +158,9 @@ def finalize(state: AgentState):
     return {
         "answer": answer,
     }
-#--------------------------------------------------------
+
+
+# --------------------------------------------------------
 # validate from answer_validator_api
 def validate(state: AgentState):
     answer = state["answer"]
@@ -167,11 +175,10 @@ def validate(state: AgentState):
 
     validation_result = response.json()
 
-    return {
-        "validation": validation_result
-    }
-    
-#--------------------------------------------------------
+    return {"validation": validation_result}
+
+
+# --------------------------------------------------------
 # router after validate
 def route_after_validate(state: AgentState):
     validation = state["validation"]
@@ -180,16 +187,15 @@ def route_after_validate(state: AgentState):
         return "end"
 
     return "repair"
-#------------------------------------------------------
+
+
+# ------------------------------------------------------
 # reapir if not valid
 def repair(state: AgentState):
     answer = state["answer"]
     validation = state["validation"]
 
-    error = validation.get(
-        "error",
-        "Unknown validation error."
-    )
+    error = validation.get("error", "Unknown validation error.")
 
     repair_prompt = REPAIR_PROMPT.format(
         answer=answer.model_dump_json(indent=2),
@@ -197,23 +203,25 @@ def repair(state: AgentState):
         evidence=state.get("evidence", []),
     )
 
-    repaired_answer = structured_llm.invoke([
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT,
-        },
-        {
-            "role": "user",
-            "content": repair_prompt,
-        },
-    ])
+    repaired_answer = structured_llm.invoke(
+        [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": repair_prompt,
+            },
+        ]
+    )
 
-    return {
-        "answer": repaired_answer
-    }
-#-------------------------------------------------------
+    return {"answer": repaired_answer}
+
+
+# -------------------------------------------------------
 # building graph
-#--------------------------------------------------------
+# --------------------------------------------------------
 builder = StateGraph(AgentState)
 builder.add_node("decompose", decompose)
 

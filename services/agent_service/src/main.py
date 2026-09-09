@@ -13,7 +13,6 @@ from shared.models import AskRequest, StrictAnswer
 
 from .graph import graph
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
