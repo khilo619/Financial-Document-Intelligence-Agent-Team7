@@ -1,9 +1,16 @@
 import ast
 import operator
-from shared.config import get_service_url, ServiceName
+
 from langchain_openai import ChatOpenAI
-from shared.config import DEFAULT_LLM_MODEL, DEFAULT_LLM_TEMPERATURE
+
+from shared.config import (
+    DEFAULT_LLM_MODEL,
+    DEFAULT_LLM_TEMPERATURE,
+    ServiceName,
+    get_service_url,
+)
 from shared.models import DecompositionResult
+
 from .prompts import DECOMPOSE_PROMPT
 
 
