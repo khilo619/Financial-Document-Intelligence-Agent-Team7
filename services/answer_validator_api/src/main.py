@@ -70,17 +70,17 @@ def validate_answer(request: ValidationRequest):
             error=None,
             log_message=log_msg,
         )
-    except (ValidationError) as exc:
-            error_str = _clean_pydantic_error(exc)
-            log_msg = f"{VALIDATOR_ERROR_PREFIX} Invalid answer for '{a_type}': {error_str}"
-            logger.error(log_msg)
-            return ValidationResponse(
-                is_valid=False,
-                answer_type=a_type,
-                error=error_str,
-                log_message=log_msg,
-            )
-    except (ValueError) as exc:
+    except ValidationError as exc:
+        error_str = _clean_pydantic_error(exc)
+        log_msg = f"{VALIDATOR_ERROR_PREFIX} Invalid answer for '{a_type}': {error_str}"
+        logger.error(log_msg)
+        return ValidationResponse(
+            is_valid=False,
+            answer_type=a_type,
+            error=error_str,
+            log_message=log_msg,
+        )
+    except ValueError as exc:
         error_str = str(exc)
         log_msg = f"{VALIDATOR_ERROR_PREFIX} Invalid answer for '{a_type}': {error_str}"
         logger.error(log_msg)
@@ -90,7 +90,6 @@ def validate_answer(request: ValidationRequest):
             error=error_str,
             log_message=log_msg,
         )
-    
 
 
 @app.post("/calculate")
@@ -105,10 +104,19 @@ def safe_calculate(payload: dict):
     try:
         result = float(simpleeval.simple_eval(expression, functions=safe_functions))
         if not math.isfinite(result):
-            return {"expression": expression, "error": f"Result is not finite: {result}", "status": "error"}
+            return {
+                "expression": expression,
+                "error": f"Result is not finite: {result}",
+                "status": "error",
+            }
         return {"expression": expression, "result": result, "status": "success"}
 
-    except (simpleeval.InvalidExpression, ValueError, TypeError, ZeroDivisionError) as exc:
+    except (
+        simpleeval.InvalidExpression,
+        ValueError,
+        TypeError,
+        ZeroDivisionError,
+    ) as exc:
         logger.error("Calculation error on '%s': %s", expression, exc)
         return {"expression": expression, "error": str(exc), "status": "error"}
 

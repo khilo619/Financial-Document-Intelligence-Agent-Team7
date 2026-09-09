@@ -7,8 +7,6 @@ without each file re-instantiating its own client. Auto-discovered by pytest;
 no imports needed elsewhere.
 """
 
-
-
 import pytest
 from fastapi.testclient import TestClient
 from services.answer_validator_api.src.main import app

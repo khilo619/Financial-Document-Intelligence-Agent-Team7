@@ -7,6 +7,7 @@ TestClient — covering request/response wrapping, exception handling and
 ordering, console log output format (per the grading spec's exact log
 strings), and the /calculate endpoint's safe arithmetic sandboxing.
 """
+
 import logging
 import pytest
 
@@ -18,21 +19,43 @@ def test_health(client):
 
 
 VALID_CASES = [
-    ("direct", {"answer_type": "direct",
-                "evidence": [{"document_id": "doc_017.pdf", "page": 1}],
-                "params": {"value": "$142.5M"}}),
-    ("calculated", {"answer_type": "calculated",
-                    "evidence": [{"document_id": "doc_041.pdf", "page": 2},
-                                 {"document_id": "doc_041.pdf", "page": 1}],
-                    "params": {"value": 13.64, "formula": "(3875-3410)/3410*100"}}),
-    ("multi_span", {"answer_type": "multi_span",
-                    "evidence": [{"document_id": "doc_022.pdf", "page": 3}],
-                    "params": {"values": ["Marketing", "R&D"]}}),
-    ("insufficient_evidence", {"answer_type": "insufficient_evidence",
-                               "evidence": [],
-                               "params": {"reason": "No document reports restructuring expenses."}}),
-
+    (
+        "direct",
+        {
+            "answer_type": "direct",
+            "evidence": [{"document_id": "doc_017.pdf", "page": 1}],
+            "params": {"value": "$142.5M"},
+        },
+    ),
+    (
+        "calculated",
+        {
+            "answer_type": "calculated",
+            "evidence": [
+                {"document_id": "doc_041.pdf", "page": 2},
+                {"document_id": "doc_041.pdf", "page": 1},
+            ],
+            "params": {"value": 13.64, "formula": "(3875-3410)/3410*100"},
+        },
+    ),
+    (
+        "multi_span",
+        {
+            "answer_type": "multi_span",
+            "evidence": [{"document_id": "doc_022.pdf", "page": 3}],
+            "params": {"values": ["Marketing", "R&D"]},
+        },
+    ),
+    (
+        "insufficient_evidence",
+        {
+            "answer_type": "insufficient_evidence",
+            "evidence": [],
+            "params": {"reason": "No document reports restructuring expenses."},
+        },
+    ),
 ]
+
 
 @pytest.mark.parametrize("expected_type,payload", VALID_CASES)
 def test_validate_answer_valid_all_types(client, caplog, expected_type, payload):
@@ -46,20 +69,41 @@ def test_validate_answer_valid_all_types(client, caplog, expected_type, payload)
 
 
 INVALID_CASES = [
-    ("calculated", {"answer_type": "calculated",
-                    "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
-                    "params": {"value": 13.4}}, "formula"),
-    ("direct", {"answer_type": "direct", "evidence": [],
-                "params": {"value": "$100M"}}, "evidence"),
-    ("multi_span", {"answer_type": "multi_span",
-                "evidence": [{"document_id": "doc_1.pdf", "page": 1}],
-                "params": {"values": ["only one"]}}, "at least 2 items"),
-    ("insufficient_evidence", {"answer_type": "insufficient_evidence",
-                               "evidence": [], "params": {}}, "reason"),
+    (
+        "calculated",
+        {
+            "answer_type": "calculated",
+            "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
+            "params": {"value": 13.4},
+        },
+        "formula",
+    ),
+    (
+        "direct",
+        {"answer_type": "direct", "evidence": [], "params": {"value": "$100M"}},
+        "evidence",
+    ),
+    (
+        "multi_span",
+        {
+            "answer_type": "multi_span",
+            "evidence": [{"document_id": "doc_1.pdf", "page": 1}],
+            "params": {"values": ["only one"]},
+        },
+        "at least 2 items",
+    ),
+    (
+        "insufficient_evidence",
+        {"answer_type": "insufficient_evidence", "evidence": [], "params": {}},
+        "reason",
+    ),
 ]
 
+
 @pytest.mark.parametrize("a_type,payload,expected_snippet", INVALID_CASES)
-def test_validate_answer_invalid_all_types(client, caplog, a_type, payload, expected_snippet):
+def test_validate_answer_invalid_all_types(
+    client, caplog, a_type, payload, expected_snippet
+):
     with caplog.at_level(logging.ERROR, logger="AnswerValidator"):
         resp = client.post("/validate_answer", json={"answer": payload})
     body = resp.json()
@@ -76,38 +120,46 @@ def test_validate_answer_malformed_envelope(client):
 
 
 def test_validate_answer_reports_clean_missing_key(client):
-    resp = client.post("/validate_answer", json={
-        "answer": {
-            "answer_type": "calculated",
-            "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
-            "params": {"value": 13.4},
-        }
-    })
+    resp = client.post(
+        "/validate_answer",
+        json={
+            "answer": {
+                "answer_type": "calculated",
+                "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
+                "params": {"value": 13.4},
+            }
+        },
+    )
     assert resp.json()["error"] == "Missing required key 'formula'"
 
 
 def test_validate_answer_rejects_formula_value_mismatch(client):
-    resp = client.post("/validate_answer", json={
-        "answer": {
-            "answer_type": "calculated",
-            "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
-            "params": {"value": 13.64, "formula": "3875 - 3410"},
-        }
-    })
+    resp = client.post(
+        "/validate_answer",
+        json={
+            "answer": {
+                "answer_type": "calculated",
+                "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
+                "params": {"value": 13.64, "formula": "3875 - 3410"},
+            }
+        },
+    )
     body = resp.json()
     assert body["is_valid"] is False
     assert "does not match formula result" in body["error"].lower()
-    
 
 
 def test_validate_answer_rejects_invalid_formula(client):
-    resp = client.post("/validate_answer", json={
-        "answer": {
-            "answer_type": "calculated",
-            "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
-            "params": {"value": 13.64, "formula": "__import__('os')"},
-        }
-    })
+    resp = client.post(
+        "/validate_answer",
+        json={
+            "answer": {
+                "answer_type": "calculated",
+                "evidence": [{"document_id": "doc_041.pdf", "page": 2}],
+                "params": {"value": 13.64, "formula": "__import__('os')"},
+            }
+        },
+    )
     body = resp.json()
     assert body["is_valid"] is False
     assert "could not be evaluated" in body["error"].lower()
@@ -129,11 +181,14 @@ def test_calculate_rejects_non_finite_result(client):
     assert resp.json()["status"] == "error"
 
 
-@pytest.mark.parametrize("bad_expr", [
-    "import os",
-    "__import__('os').system('ls')",
-    "().__class__.__bases__",
-])
+@pytest.mark.parametrize(
+    "bad_expr",
+    [
+        "import os",
+        "__import__('os').system('ls')",
+        "().__class__.__bases__",
+    ],
+)
 def test_calculate_rejects_unsafe(client, bad_expr):
     resp = client.post("/calculate", json={"expression": bad_expr})
     assert resp.json()["status"] == "error"
