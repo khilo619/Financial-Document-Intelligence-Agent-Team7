@@ -15,33 +15,42 @@ from shared.models import DecompositionResult
 
 from .prompts import DECOMPOSE_PROMPT
 
-RETRIEVAL_API_URL = (
-    f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
-)
+RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
 
-#-----------------------------------------
+
+# -----------------------------------------
 # decompose tool -
-#--------------------------------------------
-@tool("decompose_question",description="Break a complex financial question into smaller sub-questions.")
+# --------------------------------------------
+@tool(
+    "decompose_question",
+    description="Break a complex financial question into smaller sub-questions.",
+)
 def decompose_question(query: str) -> list[str]:
     decomposition_llm = ChatOpenAI(
         model=DEFAULT_LLM_MODEL,
         temperature=DEFAULT_LLM_TEMPERATURE,
     ).with_structured_output(DecompositionResult)
 
-    result = decomposition_llm.invoke([
-        {"role": "system", "content": DECOMPOSE_PROMPT},
-        {"role": "user", "content": query},
-    ])
+    result = decomposition_llm.invoke(
+        [
+            {"role": "system", "content": DECOMPOSE_PROMPT},
+            {"role": "user", "content": query},
+        ]
+    )
 
     return result.sub_questions
 
-#---------------------------------------------------------
+
+# ---------------------------------------------------------
 # Serach Document tool-
-#----------------------------------------------------------
-@tool("search_documents",description="Search relevant information from financial documents")
-def search_documents(query:str , filters:dict| None=None):
-    response=requests.post(RETRIEVAL_API_URL,
+# ----------------------------------------------------------
+@tool(
+    "search_documents",
+    description="Search relevant information from financial documents",
+)
+def search_documents(query: str, filters: dict | None = None):
+    response = requests.post(
+        RETRIEVAL_API_URL,
         json={
             "query": query,
             "top_k": 30,
@@ -55,16 +64,21 @@ def search_documents(query:str , filters:dict| None=None):
 
     return response.json()
 
-#------------------------------------------------------------------------
-# Serach tables tool 
-#------------------------------------------------------------------------
 
-@tool("search_tables",description="Search the financial document corpus for relevant table data.")
+# ------------------------------------------------------------------------
+# Serach tables tool
+# ------------------------------------------------------------------------
+
+
+@tool(
+    "search_tables",
+    description="Search the financial document corpus for relevant table data.",
+)
 def search_tables(
     query: str,
     filters: dict | None = None,
 ):
-    
+
     table_filters = filters.copy() if filters else {}
     table_filters["content_type"] = "table"
 
@@ -85,10 +99,9 @@ def search_tables(
     return response.json()
 
 
-
-#------------------------------------------------------------------------
-# Calculation  tool 
-#------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# Calculation  tool
+# ------------------------------------------------------------------------
 ## Safe Calculation (save eval)
 
 _ALLOWED_OPERATORS = {
@@ -100,6 +113,7 @@ _ALLOWED_OPERATORS = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
+
 
 def _safe_eval(node):
     if isinstance(node, ast.Constant):
@@ -128,10 +142,13 @@ def _safe_eval(node):
     raise ValueError("Invalid mathematical expression.")
 
 
-#------------------------------------
+# ------------------------------------
 # calculate tool
-@tool("calculate",description="Safely evaluate a mathematical expression.Only basic arithmetic operations are allowed.")
-def calculate(expression:str) -> float:
+@tool(
+    "calculate",
+    description="Safely evaluate a mathematical expression.Only basic arithmetic operations are allowed.",
+)
+def calculate(expression: str) -> float:
     try:
         tree = ast.parse(expression, mode="eval")
         result = _safe_eval(tree.body)
@@ -142,7 +159,7 @@ def calculate(expression:str) -> float:
         raise ValueError(f"Invalid calculation: {e}")
 
 
-#-------------------------------------------------
-#-------------------------------------------------
+# -------------------------------------------------
+# -------------------------------------------------
 
-tools=[decompose_question,search_documents,search_tables,calculate]
+tools = [decompose_question, search_documents, search_tables, calculate]
