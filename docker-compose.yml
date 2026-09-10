@@ -197,6 +197,7 @@ services:
       - ./data/tat_dqa:/data/tat_dqa:ro
       # Persistent cache for Hugging Face models across runs
       - huggingface_cache:/root/.cache/huggingface
+      - ./data/processed_json:/data/processed_json
 
     # --------------------------------------------------------------------------
     # NVIDIA GPU access
