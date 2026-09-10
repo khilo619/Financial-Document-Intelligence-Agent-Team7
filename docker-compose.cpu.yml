@@ -1,5 +1,3 @@
-version: "3.8"
-
 # ==============================================================================
 # PROJECT LEDGER: CPU Override for Local Testing on Non-GPU Machines
 #

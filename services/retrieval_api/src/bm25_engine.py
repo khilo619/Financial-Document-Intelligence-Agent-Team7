@@ -46,6 +46,12 @@ class BM25Engine:
 
         self.documents = documents
 
+        # Guard against empty collection on fresh bootstrap:
+        # rank_bm25 raises ZeroDivisionError when corpus_size == 0
+        if not documents:
+            self.bm25 = None
+            return
+
         texts = [self._build_search_text(document) for document in documents]
 
         tokenized_documents = [text.lower().split() for text in texts]
@@ -109,8 +115,8 @@ class BM25Engine:
             Ranked BM25 search results.
         """
 
-        if self.bm25 is None:
-            raise RuntimeError("BM25 index has not been initialized.")
+        if self.bm25 is None or not self.documents:
+            return []
 
         tokenized_query = query.lower().split()
 

@@ -1,5 +1,3 @@
-version: "3.8"
-
 # ==============================================================================
 # PROJECT LEDGER: Multi-Service Orchestration Cluster
 # System: Financial Document Intelligence RAG Agent (MIA Team 7)
@@ -54,7 +52,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
 
   # ----------------------------------------------------------------------------
@@ -92,7 +91,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
 
   # ----------------------------------------------------------------------------
@@ -144,9 +144,10 @@ services:
           "-c",
           "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 120s
 
 
   # ----------------------------------------------------------------------------
@@ -216,9 +217,10 @@ services:
           "-c",
           "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 180s
 
 
   # ----------------------------------------------------------------------------
@@ -265,7 +267,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
 
   # ----------------------------------------------------------------------------
@@ -313,7 +316,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
 
   # ----------------------------------------------------------------------------
@@ -356,7 +360,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
 
   # ----------------------------------------------------------------------------

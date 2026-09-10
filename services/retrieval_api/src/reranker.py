@@ -41,6 +41,8 @@ class Reranker:
         results: list[dict],
         top_n: int = 5,
     ) -> list[dict]:
+        if not results:
+            return []
 
         pairs = [(query, result.get("content", "")) for result in results]
 
