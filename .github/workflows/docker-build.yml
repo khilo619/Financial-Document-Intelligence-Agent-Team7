@@ -105,11 +105,17 @@ jobs:
                   try:
                       targets = json.loads(raw_changes)
                   except Exception:
+                      pass
+
+                  if not targets:
                       try:
                           targets = ast.literal_eval(raw_changes)
-                      except Exception as e:
-                          print(f'Failed to parse changes: {e}')
-                          targets = []
+                      except Exception:
+                          pass
+
+                  if not targets:
+                      cleaned = raw_changes.strip('[] \t\n\r"\'')
+                      targets = [s.strip(' "\'') for s in cleaned.split(',') if s.strip(' "\'')]
 
           print(f'Target services to build: {targets}')
           matrix_include = [{'name': s, 'dockerfile': SERVICE_MAP[s]} for s in targets if s in SERVICE_MAP]
