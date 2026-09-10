@@ -308,6 +308,7 @@ services:
       - ANSWER_VALIDATOR_HOST=answer-validator-api
       - RETRIEVAL_HOST=retrieval-api
       - DOC_PROCESSOR_HOST=doc-processor-api
+      - EVAL_HOST=eval-service
 
     volumes:
       - ./services/orchestrator_api/src:/app/src:ro

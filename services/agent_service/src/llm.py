@@ -1,6 +1,9 @@
+import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+logger = logging.getLogger("AgentService.LLM")
 
 
 def get_llm() -> ChatOpenAI:
@@ -20,9 +23,23 @@ def get_llm() -> ChatOpenAI:
     gemini_key = os.getenv("GEMINI_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
 
+    # Sanitize keys: strip whitespace, newlines, and accidental wrapping quotes
+    if gemini_key:
+        gemini_key = gemini_key.strip().strip("'\"")
+    if openai_key:
+        openai_key = openai_key.strip().strip("'\"")
+
+    if not gemini_key and not openai_key and provider != "ollama":
+        logger.error(
+            "CRITICAL: Neither GEMINI_API_KEY nor OPENAI_API_KEY is set in container environment! "
+            "Ensure the .env file exists in the repository root and has GEMINI_API_KEY=AQ... without quotes."
+        )
+
     # If Gemini is selected or GEMINI_API_KEY is present, route to Google AI Studio
     if gemini_key or provider == "gemini":
         target_model = model if "gemini" in model.lower() else "gemini-3.6-flash"
+        masked = f"{gemini_key[:4]}...{gemini_key[-4:]}" if gemini_key and len(gemini_key) > 8 else "NONE"
+        logger.info("Initializing Google Gemini client (model=%s, key_preview=%s)", target_model, masked)
         return ChatOpenAI(
             model=target_model,
             temperature=temperature,

@@ -162,27 +162,42 @@ class LangfuseReporter:
             return f"mock_trace_{question_id}"
 
         try:
-            trace = self.client.trace(
-                name="ledger_eval_item",
-                session_id=meta.get("session_id", "eval_practice_run"),
-                input={"question_id": question_id, "question": question_text},
-                output={"prediction": str(prediction_answer)},
-                metadata=meta,
-                tags=[
-                    meta.get("task_family", "general"),
-                    f"diff_tier_{meta.get('difficulty_tier', 1)}",
-                ],
-            )
-
-            # Record quantitative scores
-            for score_name, score_val in scores.items():
-                trace.score(
-                    name=score_name,
-                    value=float(score_val),
-                    comment=f"Ground truth: {ground_truth_answer}",
+            if hasattr(self.client, "trace"):
+                trace = self.client.trace(
+                    name="ledger_eval_item",
+                    session_id=meta.get("session_id", "eval_practice_run"),
+                    input={"question_id": question_id, "question": question_text},
+                    output={"prediction": str(prediction_answer)},
+                    metadata=meta,
+                    tags=[
+                        meta.get("task_family", "general"),
+                        f"diff_tier_{meta.get('difficulty_tier', 1)}",
+                    ],
                 )
-
-            return trace.id
+                trace_id = trace.id
+                for score_name, score_val in scores.items():
+                    trace.score(
+                        name=score_name,
+                        value=float(score_val),
+                        comment=f"Ground truth: {ground_truth_answer}",
+                    )
+                return trace_id
+            elif hasattr(self.client, "create_score"):
+                trace_id = (
+                    self.client.create_trace_id()
+                    if hasattr(self.client, "create_trace_id")
+                    else f"trace_{question_id}"
+                )
+                for score_name, score_val in scores.items():
+                    self.client.create_score(
+                        name=score_name,
+                        value=float(score_val),
+                        trace_id=trace_id,
+                        comment=f"Ground truth: {ground_truth_answer}",
+                    )
+                return trace_id
+            else:
+                return f"trace_{question_id}"
 
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to dispatch scores to Langfuse for %s: %s", question_id, exc)
