@@ -65,4 +65,15 @@ def solve_question(request: AskRequest):
 
     final_state = graph.invoke(initial_state)
 
-    return final_state["answer"]
+    answer = final_state.get("answer")
+    if answer is None:
+        return StrictAnswer(
+            answer_type="insufficient_evidence",
+            params={"reason": "Agent reasoning completed without producing an answer."},
+            evidence=[],
+        )
+
+    if isinstance(answer, dict):
+        return StrictAnswer.model_validate(answer)
+
+    return answer

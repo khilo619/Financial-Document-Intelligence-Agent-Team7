@@ -201,7 +201,7 @@ class HttpPipelineClient:
     Connects to orchestrator-api (Port 8001) or agent-service (Port 8004) via HTTP POST /ask.
     """
 
-    def __init__(self, endpoint_url: str | None = None, timeout: float = 30.0):
+    def __init__(self, endpoint_url: str | None = None, timeout: float = 90.0):
         self.endpoint_url = endpoint_url or f"{get_service_url(ServiceName.ORCHESTRATOR.value)}/ask"
         self.timeout = timeout
 

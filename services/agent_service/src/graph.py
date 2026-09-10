@@ -1,14 +1,12 @@
 import json
+import logging
 
 import requests
 from langchain_core.messages import ToolMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from shared.config import (
-    DEFAULT_LLM_MODEL,
-    DEFAULT_LLM_TEMPERATURE,
     ServiceName,
     get_service_url,
 )
@@ -19,6 +17,7 @@ from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
 
+logger = logging.getLogger("AgentService.Graph")
 ANSWER_VALIDATOR_URL = f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
 
 llm = get_llm()
@@ -35,15 +34,28 @@ tool_node = ToolNode(tools)
 # -------------------------------------------
 def decompose(state: AgentState):
     last_message = state["messages"][-1]
+    content = getattr(last_message, "content", "")
+    if isinstance(content, list):
+        sub_questions = content
+    elif isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+            sub_questions = parsed if isinstance(parsed, list) else [content]
+        except Exception:
+            sub_questions = [content]
+    else:
+        sub_questions = [str(content)]
 
+    # Must be a user role so Gemini alternating turn validation succeeds
     return {
         "messages": [
             {
-                "role": "assistant",
+                "role": "user",
                 "content": (
                     "The original question has been decomposed into "
                     "the following sub-questions:\n\n"
-                    + "\n".join(f"{i}. {question}" for i, question in enumerate(last_message.content, start=1))
+                    + "\n".join(f"{i}. {q}" for i, q in enumerate(sub_questions, start=1))
+                    + "\n\nPlease proceed to investigate these sub-questions using available tools."
                 ),
             }
         ]
@@ -54,9 +66,23 @@ def decompose(state: AgentState):
 # reason node
 # -----------------------------------------
 def reason(state: AgentState):
+    raw_messages = list(state.get("messages", []))
+
+    # Ensure Gemini does not receive a request ending with a model turn
+    if raw_messages:
+        last = raw_messages[-1]
+        last_role = getattr(last, "type", None) or (last.get("role") if isinstance(last, dict) else None)
+        if last_role in ("ai", "assistant", "model"):
+            raw_messages.append(
+                {
+                    "role": "user",
+                    "content": "Please proceed with reasoning based on the above information.",
+                }
+            )
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        *state.get("messages", []),
+        *raw_messages,
     ]
 
     response = invoke_with_retry(llm_with_tools, messages)
@@ -101,13 +127,14 @@ def route_after_tools(state: AgentState):
 # --------------------------------------------
 # evidence nood
 def collect_evidence(state: AgentState):
-    evidence = state.get("evidence", [])
+    evidence = list(state.get("evidence", []))
+    seen_blocks = {(e.get("document_id"), e.get("page"), e.get("block_id")) for e in evidence if isinstance(e, dict)}
 
     tool_messages = []
 
     # Collect only the ToolMessages produced
     # in the immediately previous ToolNode execution
-    for message in reversed(state["messages"]):
+    for message in reversed(state.get("messages", [])):
         if not isinstance(message, ToolMessage):
             break
 
@@ -128,7 +155,12 @@ def collect_evidence(state: AgentState):
             results = content.get("results", [])
 
             if isinstance(results, list):
-                evidence.extend(results)
+                for item in results:
+                    if isinstance(item, dict):
+                        key = (item.get("document_id"), item.get("page"), item.get("block_id"))
+                        if key not in seen_blocks:
+                            seen_blocks.add(key)
+                            evidence.append(item)
 
     return {"evidence": evidence}
 
@@ -141,12 +173,34 @@ structured_llm = llm.with_structured_output(StrictAnswer)
 
 
 def finalize(state: AgentState):
+    raw_messages = list(state.get("messages", []))
+
+    # Always append a final user message to guarantee Gemini ends with a user turn
+    # and strictly generates the StrictAnswer schema
     messages = [
         {"role": "system", "content": FINALIZE_PROMPT},
-        *state.get("messages", []),
+        *raw_messages,
+        {
+            "role": "user",
+            "content": (
+                "Produce the final structured answer strictly adhering to the StrictAnswer schema "
+                "based on the conversation and retrieved evidence above."
+            ),
+        },
     ]
 
-    answer = invoke_with_retry(structured_llm, messages)
+    try:
+        answer = invoke_with_retry(structured_llm, messages)
+    except Exception as exc:
+        logger.error("Structured LLM invocation failed in finalize: %s", exc)
+        answer = None
+
+    if answer is None:
+        answer = StrictAnswer(
+            answer_type="insufficient_evidence",
+            params={"reason": "Unable to produce a valid structured answer from evidence."},
+            evidence=[],
+        )
 
     return {
         "answer": answer,
@@ -156,11 +210,22 @@ def finalize(state: AgentState):
 # --------------------------------------------------------
 # validate from answer_validator_api
 def validate(state: AgentState):
-    answer = state["answer"]
+    answer = state.get("answer")
+    if hasattr(answer, "model_dump"):
+        answer_payload = answer.model_dump()
+    elif isinstance(answer, dict):
+        answer_payload = answer
+    else:
+        answer_payload = {
+            "answer_type": "insufficient_evidence",
+            "params": {"reason": "Missing candidate answer"},
+            "evidence": [],
+        }
 
+    # ValidationRequest expects payload wrapped in {"answer": ...}
     response = requests.post(
         ANSWER_VALIDATOR_URL,
-        json=answer.model_dump(),
+        json={"answer": answer_payload},
         timeout=30,
     )
 
@@ -174,43 +239,59 @@ def validate(state: AgentState):
 # --------------------------------------------------------
 # router after validate
 def route_after_validate(state: AgentState):
-    validation = state["validation"]
+    validation = state.get("validation", {})
 
     if validation.get("is_valid"):
+        return "end"
+
+    # Stop after max repair attempts (2) to prevent infinite loops
+    attempts = state.get("repair_attempts", 0)
+    if attempts >= 2:
         return "end"
 
     return "repair"
 
 
 # ------------------------------------------------------
-# reapir if not valid
+# repair if not valid
 def repair(state: AgentState):
-    answer = state["answer"]
-    validation = state["validation"]
+    answer = state.get("answer")
+    validation = state.get("validation", {})
+    attempts = state.get("repair_attempts", 0) + 1
 
     error = validation.get("error", "Unknown validation error.")
+    answer_str = (
+        answer.model_dump_json(indent=2) if hasattr(answer, "model_dump_json") else json.dumps(answer, indent=2)
+    )
 
     repair_prompt = REPAIR_PROMPT.format(
-        answer=answer.model_dump_json(indent=2),
+        answer=answer_str,
         error=error,
         evidence=state.get("evidence", []),
     )
 
-    repaired_answer = invoke_with_retry(
-        structured_llm,
-        [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": repair_prompt,
-            },
-        ],
-    )
+    try:
+        repaired_answer = invoke_with_retry(
+            structured_llm,
+            [
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": repair_prompt,
+                },
+            ],
+        )
+    except Exception as exc:
+        logger.error("Structured LLM invocation failed in repair: %s", exc)
+        repaired_answer = None
 
-    return {"answer": repaired_answer}
+    if repaired_answer is None:
+        repaired_answer = answer
+
+    return {"answer": repaired_answer, "repair_attempts": attempts}
 
 
 # -------------------------------------------------------

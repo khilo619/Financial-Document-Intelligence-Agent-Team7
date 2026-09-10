@@ -3,11 +3,8 @@ import operator
 
 import requests
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 
 from shared.config import (
-    DEFAULT_LLM_MODEL,
-    DEFAULT_LLM_TEMPERATURE,
     ServiceName,
     get_service_url,
 )
@@ -27,48 +24,49 @@ RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
     description="Break a complex financial question into smaller sub-questions.",
 )
 def decompose_question(query: str) -> list[str]:
-    decomposition_llm = get_llm().with_structured_output(DecompositionResult)
-
-    result = invoke_with_retry(
-        decomposition_llm,
-        [
-            {"role": "system", "content": DECOMPOSE_PROMPT},
-            {"role": "user", "content": query},
-        ],
-    )
-
-    return result.sub_questions
+    try:
+        decomposition_llm = get_llm().with_structured_output(DecompositionResult)
+        result = invoke_with_retry(
+            decomposition_llm,
+            [
+                {"role": "system", "content": DECOMPOSE_PROMPT},
+                {"role": "user", "content": query},
+            ],
+        )
+        return result.sub_questions if result and result.sub_questions else [query]
+    except Exception:
+        return [query]
 
 
 # ---------------------------------------------------------
-# Serach Document tool-
+# Search Document tool
 # ----------------------------------------------------------
 @tool(
     "search_documents",
     description="Search relevant information from financial documents",
 )
 def search_documents(query: str, filters: dict | None = None):
-    response = requests.post(
-        RETRIEVAL_API_URL,
-        json={
-            "query": query,
-            "top_k": 30,
-            "top_n": 5,
-            "filters": filters,
-            "use_reranking": True,
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.post(
+            RETRIEVAL_API_URL,
+            json={
+                "query": query,
+                "top_k": 30,
+                "top_n": 5,
+                "filters": filters,
+                "use_reranking": True,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        return {"results": [], "error": f"Search failed: {exc}"}
 
 
 # ------------------------------------------------------------------------
-# Serach tables tool
+# Search tables tool
 # ------------------------------------------------------------------------
-
-
 @tool(
     "search_tables",
     description="Search the financial document corpus for relevant table data.",
@@ -77,29 +75,29 @@ def search_tables(
     query: str,
     filters: dict | None = None,
 ):
-
     table_filters = filters.copy() if filters else {}
     table_filters["content_type"] = "table"
 
-    response = requests.post(
-        RETRIEVAL_API_URL,
-        json={
-            "query": query,
-            "top_k": 30,
-            "top_n": 5,
-            "filters": table_filters,
-            "use_reranking": True,
-        },
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.post(
+            RETRIEVAL_API_URL,
+            json={
+                "query": query,
+                "top_k": 30,
+                "top_n": 5,
+                "filters": table_filters,
+                "use_reranking": True,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        return {"results": [], "error": f"Table search failed: {exc}"}
 
 
 # ------------------------------------------------------------------------
-# Calculation  tool
+# Calculation tool
 # ------------------------------------------------------------------------
 ## Safe Calculation (save eval)
 
@@ -145,17 +143,17 @@ def _safe_eval(node):
 # calculate tool
 @tool(
     "calculate",
-    description="Safely evaluate a mathematical expression.Only basic arithmetic operations are allowed.",
+    description="Safely evaluate a mathematical expression. Only basic arithmetic operations are allowed.",
 )
-def calculate(expression: str) -> float:
+def calculate(expression: str) -> float | str:
     try:
         tree = ast.parse(expression, mode="eval")
         result = _safe_eval(tree.body)
 
         return float(result)
 
-    except (SyntaxError, ValueError, ZeroDivisionError) as e:
-        raise ValueError(f"Invalid calculation: {e}")
+    except (SyntaxError, ValueError, ZeroDivisionError, Exception) as e:
+        return f"Calculation error on '{expression}': {e}"
 
 
 # -------------------------------------------------

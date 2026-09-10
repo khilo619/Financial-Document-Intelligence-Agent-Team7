@@ -12,3 +12,4 @@ class AgentState(TypedDict, total=False):
     evidence: list[dict[str, Any]]
     answer: StrictAnswer
     validation: dict[str, Any]
+    repair_attempts: int
