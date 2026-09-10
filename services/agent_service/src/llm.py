@@ -1,9 +1,32 @@
 import logging
 import os
 
+import langchain_openai.chat_models.base as lc_base
 from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger("AgentService.LLM")
+
+# ==============================================================================
+# Gemini 3.x Thought Signature Compatibility Patch
+# Google Gemini 3.x requires a thought_signature in tool_calls during multi-turn
+# reasoning. Standard ChatOpenAI strips extra fields, causing Google to reject
+# follow-up turns with "Function call is missing a thought_signature".
+# We patch _convert_message_to_dict to inject Google's documented fallback
+# sentinel 'skip_thought_signature_validator' into serialized assistant tool calls.
+# ==============================================================================
+_orig_convert_message_to_dict = lc_base._convert_message_to_dict
+
+
+def _gemini_compat_convert_message_to_dict(message, *args, **kwargs):
+    d = _orig_convert_message_to_dict(message, *args, **kwargs)
+    if "tool_calls" in d and d["tool_calls"]:
+        for tc in d["tool_calls"]:
+            if isinstance(tc, dict) and "extra_content" not in tc:
+                tc["extra_content"] = {"google": {"thought_signature": "skip_thought_signature_validator"}}
+    return d
+
+
+lc_base._convert_message_to_dict = _gemini_compat_convert_message_to_dict
 
 
 def get_llm() -> ChatOpenAI:
