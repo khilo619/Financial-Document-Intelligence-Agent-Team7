@@ -458,3 +458,22 @@ class QdrantStore:
             offset = next_offset
 
         return documents
+
+    def get_collection_stats(self) -> dict:
+        """
+        Return point count and metadata status of the Qdrant collection.
+        """
+        try:
+            info = self.client.get_collection(self.COLLECTION_NAME)
+            return {
+                "collection_name": self.COLLECTION_NAME,
+                "points_count": getattr(info, "points_count", 0) or 0,
+                "indexed_vectors_count": getattr(info, "indexed_vectors_count", 0) or 0,
+                "status": str(getattr(info, "status", "unknown")),
+            }
+        except Exception as exc:
+            return {
+                "collection_name": self.COLLECTION_NAME,
+                "points_count": 0,
+                "error": str(exc),
+            }

@@ -131,6 +131,24 @@ def health_check():
     }
 
 
+@app.get("/stats")
+def get_retrieval_stats(request: Request):
+    """
+    Returns live indexing statistics for Qdrant vector database and BM25 engine.
+    """
+    qdrant_store = getattr(request.app.state, "qdrant_store", None)
+    bm25_engine = getattr(request.app.state, "bm25_engine", None)
+
+    qdrant_stats = qdrant_store.get_collection_stats() if qdrant_store else {"points_count": 0, "status": "unavailable"}
+    bm25_count = len(bm25_engine.documents) if bm25_engine and hasattr(bm25_engine, "documents") else 0
+
+    return {
+        "status": "healthy",
+        "bm25_documents_count": bm25_count,
+        "qdrant": qdrant_stats,
+    }
+
+
 # ---------------------------------------------------------
 # Index blocks endpoint
 # ---------------------------------------------------------

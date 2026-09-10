@@ -70,6 +70,8 @@ DOC_PROCESSOR_UPLOAD_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/
 
 RETRIEVAL_INDEX_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/index_blocks"
 
+RETRIEVAL_STATS_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/stats"
+
 
 # =============================================================================
 # Health Targets
@@ -365,6 +367,21 @@ def health_check():
         "service": (ServiceName.ORCHESTRATOR.value),
         "port": 8001,
     }
+
+
+@app.get("/stats")
+async def get_system_stats():
+    """
+    Returns live indexing statistics for Qdrant vector database and BM25 engine.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(RETRIEVAL_STATS_URL)
+            if resp.status_code == 200:
+                return resp.json()
+            return {"error": f"Retrieval API returned HTTP {resp.status_code}", "status": "degraded"}
+    except Exception as exc:
+        return {"error": str(exc), "status": "unavailable"}
 
 
 # =============================================================================

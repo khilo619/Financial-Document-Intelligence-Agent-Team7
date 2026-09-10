@@ -292,13 +292,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Project LEDGER automated benchmark suite.")
     parser.add_argument("--sample-size", type=int, default=10, help="Number of questions to evaluate")
     parser.add_argument("--task-family", type=str, default=None, help="Filter by task_family")
-    parser.add_argument("--mock", action="store_true", default=True, help="Use MockPipelineClient")
+    parser.add_argument(
+        "--mock", dest="mock", action="store_true", default=True, help="Use MockPipelineClient (default)"
+    )
+    parser.add_argument("--live", dest="mock", action="store_false", help="Use live HTTP pipeline (orchestrator-api)")
     parser.add_argument(
         "--endpoint",
         type=str,
         default="http://localhost:8001/ask",
         help="HTTP endpoint when not using mock",
     )
+
     args = parser.parse_args()
 
     dataset = load_benchmark_dataset()

@@ -226,9 +226,9 @@ class HttpPipelineClient:
                 data = resp.json()
 
             latency_ms = (time.perf_counter() - start) * 1000.0
-            answer_payload = data.get("answer", {})
-            strict_answer = StrictAnswer(**answer_payload)
-            retrieved = data.get("retrieved_chunks") or [
+            answer_payload = data.get("answer") if (isinstance(data, dict) and "answer" in data) else data
+            strict_answer = StrictAnswer.model_validate(answer_payload)
+            retrieved = (data.get("retrieved_chunks") if isinstance(data, dict) else None) or [
                 {"document_id": c.document_id, "page": c.page} for c in strict_answer.evidence
             ]
             return strict_answer, retrieved, latency_ms

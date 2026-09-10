@@ -74,3 +74,19 @@ def test_rrf_fusion_combines_ranks():
     assert fused[0]["sparse_score"] == 12.5
     # score = 1/(60+1) + 1/(60+1) = 2/61
     assert pytest.approx(fused[0]["rrf_score"], 0.0001) == (2.0 / 61.0)
+
+
+def test_retrieval_stats_endpoint():
+    """Verify /stats endpoint returns indexing counts without requiring a running Qdrant instance."""
+    pytest.importorskip("qdrant_client")
+    from fastapi.testclient import TestClient
+
+    from services.retrieval_api.src.main import app
+
+    client = TestClient(app)
+    resp = client.get("/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "healthy"
+    assert "bm25_documents_count" in data
+    assert "qdrant" in data

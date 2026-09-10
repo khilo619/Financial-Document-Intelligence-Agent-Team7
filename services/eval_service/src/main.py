@@ -5,6 +5,7 @@ Exposes endpoints for running automated benchmarks, retrieving metrics, and gene
 """
 
 import logging
+import os
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -35,7 +36,10 @@ LATEST_REPORT: dict[str, Any] | None = None
 class BenchmarkRunRequest(BaseModel):
     sample_size: int = Field(default=10, ge=1, le=500, description="Number of questions to run")
     task_family: str | None = Field(default=None, description="Optional task family filter")
-    use_mock: bool = Field(default=True, description="Whether to use MockPipelineClient or live HTTP")
+    use_mock: bool = Field(
+        default_factory=lambda: os.getenv("EVAL_USE_MOCK", "false").lower() in ("true", "1", "yes"),
+        description="Whether to use MockPipelineClient or live HTTP (default false: evaluates live agent)",
+    )
     endpoint_url: str | None = Field(default=None, description="Custom HTTP endpoint for live pipeline")
 
 
