@@ -80,7 +80,7 @@ jobs:
         id: set-matrix
         run: |
           python3 -c "
-          import json, os
+          import json, os, ast
 
           SERVICE_MAP = {
               'doc-processor-api': 'services/doc_processor_api/Dockerfile',
@@ -93,20 +93,31 @@ jobs:
           }
 
           event_name = '${{ github.event_name }}'
-          raw_changes = '''${{ steps.filter.outputs.changes }}'''
+          raw_changes = '''${{ steps.filter.outputs.changes }}'''.strip()
+          print(f'Event: {event_name}')
+          print(f'Raw changes detected by filter: {raw_changes}')
 
           if event_name == 'workflow_dispatch':
               targets = list(SERVICE_MAP.keys())
           else:
-              try:
-                  targets = json.loads(raw_changes)
-              except Exception:
-                  targets = []
+              targets = []
+              if raw_changes:
+                  try:
+                      targets = json.loads(raw_changes)
+                  except Exception:
+                      try:
+                          targets = ast.literal_eval(raw_changes)
+                      except Exception as e:
+                          print(f'Failed to parse changes: {e}')
+                          targets = []
 
+          print(f'Target services to build: {targets}')
           matrix_include = [{'name': s, 'dockerfile': SERVICE_MAP[s]} for s in targets if s in SERVICE_MAP]
           has_changes = 'true' if matrix_include else 'false'
 
           output_matrix = {'include': matrix_include} if matrix_include else {'include': [{'name': 'none', 'dockerfile': 'none'}]}
+          print(f'has_changes: {has_changes}')
+          print(f'Matrix: {json.dumps(output_matrix)}')
 
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'has_changes={has_changes}\n')
