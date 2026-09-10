@@ -48,9 +48,7 @@ def main():
     has_changes = "true" if matrix_include else "false"
 
     output_matrix = (
-        {"include": matrix_include}
-        if matrix_include
-        else {"include": [{"name": "none", "dockerfile": "none"}]}
+        {"include": matrix_include} if matrix_include else {"include": [{"name": "none", "dockerfile": "none"}]}
     )
     print(f"has_changes: {has_changes}")
     print(f"Matrix: {json.dumps(output_matrix)}")
