@@ -27,7 +27,8 @@ jobs:
     name: Detect Changed Microservices
     runs-on: ubuntu-latest
     outputs:
-      services: ${{ steps.filter.outputs.changes }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -73,32 +74,51 @@ jobs:
               - 'docker-compose.yml'
               - '.github/workflows/docker-build.yml'
 
+      - name: Compute Build Matrix
+        id: set-matrix
+        run: |
+          python3 -c "
+          import json, os
+
+          SERVICE_MAP = {
+              'doc-processor-api': 'services/doc_processor_api/Dockerfile',
+              'retrieval-api': 'services/retrieval_api/Dockerfile',
+              'agent-service': 'services/agent_service/Dockerfile',
+              'answer-validator-api': 'services/answer_validator_api/Dockerfile',
+              'orchestrator-api': 'services/orchestrator_api/Dockerfile',
+              'eval-service': 'services/eval_service/Dockerfile',
+              'ui-service': 'services/ui_service/Dockerfile',
+          }
+
+          event_name = '${{ github.event_name }}'
+          raw_changes = '''${{ steps.filter.outputs.changes }}'''
+
+          if event_name == 'workflow_dispatch':
+              targets = list(SERVICE_MAP.keys())
+          else:
+              try:
+                  targets = json.loads(raw_changes)
+              except Exception:
+                  targets = []
+
+          matrix_include = [{'name': s, 'dockerfile': SERVICE_MAP[s]} for s in targets if s in SERVICE_MAP]
+          has_changes = 'true' if matrix_include else 'false'
+
+          output_matrix = {'include': matrix_include} if matrix_include else {'include': [{'name': 'none', 'dockerfile': 'none'}]}
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'has_changes={has_changes}\n')
+              f.write(f'matrix={json.dumps(output_matrix)}\n')
+          "
+
   build-and-publish:
     name: Build & Publish (${{ matrix.name }})
     needs: filter-changes
+    if: needs.filter-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: doc-processor-api
-            dockerfile: services/doc_processor_api/Dockerfile
-          - name: retrieval-api
-            dockerfile: services/retrieval_api/Dockerfile
-          - name: agent-service
-            dockerfile: services/agent_service/Dockerfile
-          - name: answer-validator-api
-            dockerfile: services/answer_validator_api/Dockerfile
-          - name: orchestrator-api
-            dockerfile: services/orchestrator_api/Dockerfile
-          - name: eval-service
-            dockerfile: services/eval_service/Dockerfile
-          - name: ui-service
-            dockerfile: services/ui_service/Dockerfile
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(needs.filter-changes.outputs.services, matrix.name)
-
+      matrix: ${{ fromJSON(needs.filter-changes.outputs.matrix) }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
