@@ -1,4 +1,8 @@
 import pytest
+
+pytest.importorskip("langchain_core")
+pytest.importorskip("langgraph")
+
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from services.agent_service.src.graph import (
