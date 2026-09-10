@@ -184,9 +184,7 @@ class LangfuseReporter:
                 return trace_id
             elif hasattr(self.client, "create_score"):
                 trace_id = (
-                    self.client.create_trace_id()
-                    if hasattr(self.client, "create_trace_id")
-                    else f"trace_{question_id}"
+                    self.client.create_trace_id() if hasattr(self.client, "create_trace_id") else f"trace_{question_id}"
                 )
                 for score_name, score_val in scores.items():
                     self.client.create_score(
