@@ -93,3 +93,7 @@ scratch/
 
 # --- Local Hugging Face Models ---
 models/
+
+# --- Local Guides & Team Notes ---
+RUN_GUIDE.md
+
