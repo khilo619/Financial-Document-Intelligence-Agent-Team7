@@ -10,7 +10,11 @@ def get_llm() -> ChatOpenAI:
     2. Local Ollama via OLLAMA_BASE_URL (http://localhost:11434/v1)
     3. OpenAI (OPENAI_API_KEY)
     """
-    model = os.getenv("LLM_MODEL_NAME", "gemini-2.5-flash")
+    model = os.getenv("LLM_MODEL_NAME", "gemini-3.6-flash")
+    # Migrate legacy / deprecated model names to active Google API model
+    if model.lower() in {"gemini-2.5-flash", "gemini-1.5-flash"}:
+        model = "gemini-3.6-flash"
+
     temperature = float(os.getenv("LLM_TEMPERATURE", "0.0"))
     provider = os.getenv("LLM_PROVIDER", "gemini").lower()
     gemini_key = os.getenv("GEMINI_API_KEY")
@@ -18,7 +22,7 @@ def get_llm() -> ChatOpenAI:
 
     # If Gemini is selected or GEMINI_API_KEY is present, route to Google AI Studio
     if gemini_key or provider == "gemini":
-        target_model = model if "gemini" in model.lower() else "gemini-2.5-flash"
+        target_model = model if "gemini" in model.lower() else "gemini-3.6-flash"
         return ChatOpenAI(
             model=target_model,
             temperature=temperature,

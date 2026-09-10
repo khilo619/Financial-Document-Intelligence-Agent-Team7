@@ -78,6 +78,10 @@ services:
     environment:
       - ANSWER_VALIDATOR_PORT=8005
 
+    volumes:
+      - ./services/answer_validator_api/src:/app/src:ro
+      - ./shared:/app/shared:ro
+
     networks:
       - ledger-network
 
@@ -118,6 +122,8 @@ services:
       - DOC_PROCESSOR_PORT=8002
 
     volumes:
+      - ./services/doc_processor_api/src:/app/src:ro
+      - ./shared:/app/shared:ro
       # Mount TAT-DQA PDFs and processed output from the host.
       - ./data/tat_dqa:/data/tat_dqa
 
@@ -185,6 +191,8 @@ services:
     # Storage and Caches
     # --------------------------------------------------------------------------
     volumes:
+      - ./services/retrieval_api/src:/app/src:ro
+      - ./shared:/app/shared:ro
       # Mount Zeina's processed output so Retrieval can index it.
       - ./data/tat_dqa:/data/tat_dqa:ro
       # Persistent cache for Hugging Face models across runs
@@ -247,6 +255,10 @@ services:
       - RETRIEVAL_HOST=retrieval-api
       - ANSWER_VALIDATOR_HOST=answer-validator-api
 
+    volumes:
+      - ./services/agent_service/src:/app/src:ro
+      - ./shared:/app/shared:ro
+
     networks:
       - ledger-network
 
@@ -295,6 +307,11 @@ services:
       - AGENT_HOST=agent-service
       - ANSWER_VALIDATOR_HOST=answer-validator-api
       - RETRIEVAL_HOST=retrieval-api
+      - DOC_PROCESSOR_HOST=doc-processor-api
+
+    volumes:
+      - ./services/orchestrator_api/src:/app/src:ro
+      - ./shared:/app/shared:ro
 
     networks:
       - ledger-network
@@ -343,6 +360,10 @@ services:
       - EVAL_PORT=8006
       - ORCHESTRATOR_HOST=orchestrator-api
 
+    volumes:
+      - ./services/eval_service/src:/app/src:ro
+      - ./shared:/app/shared:ro
+
     networks:
       - ledger-network
 
@@ -386,6 +407,10 @@ services:
     environment:
       - UI_PORT=8000
       - ORCHESTRATOR_HOST=orchestrator-api
+
+    volumes:
+      - ./services/ui_service/src:/app/src:ro
+      - ./shared:/app/shared:ro
 
     networks:
       - ledger-network
