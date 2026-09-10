@@ -225,6 +225,17 @@ class RetrievedChunk(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class IndexBlocksRequest(BaseModel):
+    document_id: str
+    blocks: list[DocumentBlock]
+
+
+class IndexBlocksResponse(BaseModel):
+    status: str
+    document_id: str
+    indexed_chunks: int
+
+
 class SearchQueryRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Natural language search query")
     top_k: int = Field(

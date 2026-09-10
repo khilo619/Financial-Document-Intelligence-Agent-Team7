@@ -11,6 +11,8 @@ from fastapi import FastAPI, Request
 
 from shared.config import ServiceName
 from shared.models import (
+    IndexBlocksRequest,
+    IndexBlocksResponse,
     RetrievedChunk,
     SearchQueryRequest,
     SearchQueryResponse,
@@ -127,6 +129,51 @@ def health_check():
         "service": ServiceName.RETRIEVAL.value,
         "port": 8003,
     }
+
+
+# ---------------------------------------------------------
+# Index blocks endpoint
+# ---------------------------------------------------------
+
+
+@app.post(
+    "/index_blocks",
+    response_model=IndexBlocksResponse,
+)
+def index_document_blocks(
+    index_request: IndexBlocksRequest,
+    request: Request,
+):
+    """
+    Index DocumentBlocks into Qdrant vector store and refresh in-memory BM25 index.
+    """
+    logger.info(
+        "Received indexing request for document '%s' with %d blocks",
+        index_request.document_id,
+        len(index_request.blocks),
+    )
+
+    qdrant_store = request.app.state.qdrant_store
+    bm25_engine = request.app.state.bm25_engine
+
+    indexed_count = qdrant_store.index_blocks(index_request.blocks)
+
+    # Refresh BM25 index with updated Qdrant corpus
+    updated_documents = qdrant_store.get_all_documents()
+    bm25_engine.index_documents(updated_documents)
+
+    logger.info(
+        "Successfully indexed %d blocks for '%s'. Total BM25 index size: %d documents.",
+        indexed_count,
+        index_request.document_id,
+        len(updated_documents),
+    )
+
+    return IndexBlocksResponse(
+        status="indexed",
+        document_id=index_request.document_id,
+        indexed_chunks=indexed_count,
+    )
 
 
 # ---------------------------------------------------------

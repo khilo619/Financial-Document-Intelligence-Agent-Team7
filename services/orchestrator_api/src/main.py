@@ -68,6 +68,8 @@ DOC_PROCESSOR_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/process
 
 DOC_PROCESSOR_UPLOAD_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/upload_pdf"
 
+RETRIEVAL_INDEX_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/index_blocks"
+
 
 # =============================================================================
 # Health Targets
@@ -541,6 +543,29 @@ async def process_document(
         elapsed_ms,
     )
 
+    # Auto-index parsed blocks into Retrieval API
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            idx_resp = await client.post(
+                RETRIEVAL_INDEX_URL,
+                json={
+                    "document_id": processed_document.document_id,
+                    "blocks": [b.model_dump() for b in processed_document.blocks],
+                },
+            )
+            if idx_resp.status_code == 200:
+                logger.info(
+                    "Automatically indexed %d blocks into Retrieval API for '%s'",
+                    processed_document.total_blocks,
+                    processed_document.document_id,
+                )
+    except Exception as exc:
+        logger.warning(
+            "Auto-indexing to Retrieval API skipped or failed for '%s': %s",
+            processed_document.document_id,
+            exc,
+        )
+
     return processed_document
 
 
@@ -701,6 +726,29 @@ async def upload_document(
         processed_document.total_blocks,
         elapsed_ms,
     )
+
+    # Auto-index parsed blocks into Retrieval API
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            idx_resp = await client.post(
+                RETRIEVAL_INDEX_URL,
+                json={
+                    "document_id": processed_document.document_id,
+                    "blocks": [b.model_dump() for b in processed_document.blocks],
+                },
+            )
+            if idx_resp.status_code == 200:
+                logger.info(
+                    "Automatically indexed %d blocks into Retrieval API for '%s'",
+                    processed_document.total_blocks,
+                    processed_document.document_id,
+                )
+    except Exception as exc:
+        logger.warning(
+            "Auto-indexing to Retrieval API skipped or failed for '%s': %s",
+            processed_document.document_id,
+            exc,
+        )
 
     return processed_document
 

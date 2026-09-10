@@ -84,6 +84,9 @@ class BM25Engine:
         metadata = document.get("metadata", {})
 
         for key, expected_value in filters.items():
+            if expected_value is None or str(expected_value).strip().lower() in ("", "none", "null", "undefined"):
+                continue
+
             # Get the actual value from either the document itself
             # or its metadata.
             if key in document:

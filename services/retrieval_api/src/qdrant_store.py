@@ -297,6 +297,9 @@ class QdrantStore:
             conditions = []
 
             for key, value in filters.items():
+                if value is None or str(value).strip().lower() in ("", "none", "null", "undefined"):
+                    continue
+
                 # ---------------------------------------------
                 # Direct payload fields
                 # ---------------------------------------------

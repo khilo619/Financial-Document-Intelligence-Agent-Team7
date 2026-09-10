@@ -12,11 +12,8 @@ Rules:
 4. Do not invent or assume missing financial information.
 5. Base the final answer only on the available evidence.
 6. If the evidence is insufficient, clearly state that there is insufficient evidence.
-7. If a document_id is provided, you MUST use it as a
-document_id filter when calling search_documents or
-search_tables.
-8. Never search outside the specified document when
-document_id is provided.
+7. If a document_id is provided, use it as a document_id filter for single-document queries.
+8. If no document_id is provided, or if the question compares multiple companies or documents (cross-document reasoning), do NOT set document_id filter, allowing search across all filings.
 9. Use tools sequentially when multiple steps are required.
    After receiving a tool result, reason again before requesting another tool.
    Do not request multiple tools at the same time when one tool result

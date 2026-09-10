@@ -48,18 +48,16 @@ def solve_question(request: AskRequest):
         request.query,
     )
 
+    msg_parts = []
+    if request.document_id and request.document_id.strip().lower() not in ("none", "null", ""):
+        msg_parts.append(f"Document ID: {request.document_id.strip()}")
+    msg_parts.append(f"Question: {request.query}")
+    initial_content = "\n\n".join(msg_parts)
+
     initial_state = {
         "query": request.query,
         "document_id": request.document_id,
-        "messages": [
-            HumanMessage(
-                content=f"""
-    Document ID: {request.document_id}
-
-    Question: {request.query}
-    """
-            )
-        ],
+        "messages": [HumanMessage(content=initial_content)],
         "evidence": [],
     }
 

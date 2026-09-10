@@ -38,6 +38,19 @@ def decompose_question(query: str) -> list[str]:
         return [query]
 
 
+def _sanitize_filters(filters: dict | None) -> dict | None:
+    if not filters or not isinstance(filters, dict):
+        return None
+    cleaned = {}
+    for k, v in filters.items():
+        if v is None:
+            continue
+        if isinstance(v, str) and v.strip().lower() in ("", "none", "null", "undefined"):
+            continue
+        cleaned[k] = v
+    return cleaned if cleaned else None
+
+
 # ---------------------------------------------------------
 # Search Document tool
 # ----------------------------------------------------------
@@ -46,6 +59,7 @@ def decompose_question(query: str) -> list[str]:
     description="Search relevant information from financial documents",
 )
 def search_documents(query: str, filters: dict | None = None):
+    safe_filters = _sanitize_filters(filters)
     try:
         response = requests.post(
             RETRIEVAL_API_URL,
@@ -53,7 +67,7 @@ def search_documents(query: str, filters: dict | None = None):
                 "query": query,
                 "top_k": 30,
                 "top_n": 5,
-                "filters": filters,
+                "filters": safe_filters,
                 "use_reranking": True,
             },
             timeout=30,
@@ -75,7 +89,7 @@ def search_tables(
     query: str,
     filters: dict | None = None,
 ):
-    table_filters = filters.copy() if filters else {}
+    table_filters = _sanitize_filters(filters) or {}
     table_filters["content_type"] = "table"
 
     try:

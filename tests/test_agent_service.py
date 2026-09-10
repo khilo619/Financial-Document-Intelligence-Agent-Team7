@@ -125,3 +125,13 @@ def test_search_tools_error_resilience(monkeypatch):
     tables_res = search_tables.invoke({"query": "balance sheet"})
     assert tables_res["results"] == []
     assert "error" in tables_res
+
+
+def test_sanitize_filters():
+    """Verify _sanitize_filters strips None, 'None', 'null', '' values."""
+    from services.agent_service.src.tools import _sanitize_filters
+
+    assert _sanitize_filters(None) is None
+    assert _sanitize_filters({"document_id": "None"}) is None
+    assert _sanitize_filters({"document_id": None, "page": 1}) == {"page": 1}
+    assert _sanitize_filters({"document_id": "cts-corporation_2019.pdf"}) == {"document_id": "cts-corporation_2019.pdf"}
