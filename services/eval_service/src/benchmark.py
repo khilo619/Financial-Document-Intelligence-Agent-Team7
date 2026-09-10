@@ -11,19 +11,20 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from services.eval_service.src.langfuse_reporter import LangfuseReporter
-from services.eval_service.src.metrics import (
+from shared.models import StrictAnswer
+
+from .langfuse_reporter import LangfuseReporter
+from .metrics import (
     exact_match,
     numerical_accuracy,
     retrieval_recall_at_k,
     token_f1,
 )
-from services.eval_service.src.mock_pipeline import (
+from .mock_pipeline import (
     HttpPipelineClient,
     MockPipelineClient,
     PipelineClient,
 )
-from shared.models import StrictAnswer
 
 logger = logging.getLogger("BenchmarkRunner")
 
@@ -76,9 +77,7 @@ def load_benchmark_dataset(file_path: str | Path | None = None) -> list[dict[str
                 target = c.resolve()
                 break
         if not target:
-            raise FileNotFoundError(
-                "questions_setA_practice.json not found in repository root."
-            )
+            raise FileNotFoundError("questions_setA_practice.json not found in repository root.")
         file_path = target
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -202,9 +201,7 @@ def run_benchmark(
                     f"Formula calculation error: predicted {pred_val} but expected {gold_ans} "
                     f"(scale={gold_scale}, derivation={q.get('derivation')})."
                 )
-            elif strict_answer.answer_type == "insufficient_evidence" and q.get(
-                "is_answerable", True
-            ):
+            elif strict_answer.answer_type == "insufficient_evidence" and q.get("is_answerable", True):
                 failure_stage = "Agent Abstention"
                 diagnosis = "Agent incorrectly abstained on an answerable question."
             else:
@@ -271,12 +268,8 @@ def run_benchmark(
             "count": n,
             "exact_match": round(sum(s["exact_match"] for s in scores_list) / n, 4),
             "f1_score": round(sum(s["f1_score"] for s in scores_list) / n, 4),
-            "numerical_accuracy": round(
-                sum(s["numerical_accuracy"] for s in scores_list) / n, 4
-            ),
-            "retrieval_recall": round(
-                sum(s["retrieval_recall"] for s in scores_list) / n, 4
-            ),
+            "numerical_accuracy": round(sum(s["numerical_accuracy"] for s in scores_list) / n, 4),
+            "retrieval_recall": round(sum(s["retrieval_recall"] for s in scores_list) / n, 4),
         }
 
     failures_list = [asdict(r) for r in results if not r.passed]
@@ -296,18 +289,10 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run Project LEDGER automated benchmark suite."
-    )
-    parser.add_argument(
-        "--sample-size", type=int, default=10, help="Number of questions to evaluate"
-    )
-    parser.add_argument(
-        "--task-family", type=str, default=None, help="Filter by task_family"
-    )
-    parser.add_argument(
-        "--mock", action="store_true", default=True, help="Use MockPipelineClient"
-    )
+    parser = argparse.ArgumentParser(description="Run Project LEDGER automated benchmark suite.")
+    parser.add_argument("--sample-size", type=int, default=10, help="Number of questions to evaluate")
+    parser.add_argument("--task-family", type=str, default=None, help="Filter by task_family")
+    parser.add_argument("--mock", action="store_true", default=True, help="Use MockPipelineClient")
     parser.add_argument(
         "--endpoint",
         type=str,
@@ -318,11 +303,7 @@ if __name__ == "__main__":
 
     dataset = load_benchmark_dataset()
 
-    client = (
-        MockPipelineClient()
-        if args.mock
-        else HttpPipelineClient(endpoint_url=args.endpoint)
-    )
+    client = MockPipelineClient() if args.mock else HttpPipelineClient(endpoint_url=args.endpoint)
     report = run_benchmark(
         questions=dataset,
         client=client,
@@ -337,15 +318,11 @@ if __name__ == "__main__":
     print(f"Overall Pass Rate:      {report.pass_rate * 100:.1f}%")
     print(f"Mean Exact Match:       {report.mean_exact_match:.4f}")
     print(f"Mean Token F1:          {report.mean_f1_score:.4f}")
-    print(
-        f"Mean Numerical Acc:     {report.mean_numerical_accuracy:.4f} (epsilon=0.01)"
-    )
+    print(f"Mean Numerical Acc:     {report.mean_numerical_accuracy:.4f} (epsilon=0.01)")
     print(f"Mean Retrieval Recall:  {report.mean_retrieval_recall:.4f}")
     print(f"Average Latency:        {report.mean_latency_ms:.1f} ms")
     print("=======================================================\n")
     if report.failures:
         print(f"Sample Failure Analysis ({len(report.failures)} failures recorded):")
         for f in report.failures[:3]:
-            print(
-                f"  - [{f['question_id']}] Stage: {f['failure_stage']} | {f['diagnosis']}"
-            )
+            print(f"  - [{f['question_id']}] Stage: {f['failure_stage']} | {f['diagnosis']}")

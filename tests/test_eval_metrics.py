@@ -22,9 +22,7 @@ from services.eval_service.src.metrics import (
 
 
 def test_normalize_text():
-    assert (
-        normalize_text("The Operating Income, in 2019!") == "operating income in 2019"
-    )
+    assert normalize_text("The Operating Income, in 2019!") == "operating income in 2019"
     assert normalize_text("  a net profit of  $500  ") == "net profit of 500"
     assert normalize_text(None) == ""
 

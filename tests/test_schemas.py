@@ -28,9 +28,7 @@ def test_valid_direct_answer_string():
     """Valid fact lookup with string value and citation."""
     data = {
         "answer_type": "direct",
-        "evidence": [
-            {"document_id": "doc_017.pdf", "page": 1, "section": "Income Statement"}
-        ],
+        "evidence": [{"document_id": "doc_017.pdf", "page": 1, "section": "Income Statement"}],
         "params": {"value": "$142.5M"},
     }
     answer = StrictAnswer(**data)
@@ -120,9 +118,7 @@ def test_invalid_calculated_answer_missing_evidence():
     }
     with pytest.raises(ValidationError) as excinfo:
         StrictAnswer(**data)
-    assert "Calculated answer requires evidence citations for the operands" in str(
-        excinfo.value
-    )
+    assert "Calculated answer requires evidence citations for the operands" in str(excinfo.value)
 
 
 # ==============================================================================
@@ -134,9 +130,7 @@ def test_valid_multi_span_answer():
     """Valid multi-span answer with a list of at least 2 values."""
     data = {
         "answer_type": "multi_span",
-        "evidence": [
-            {"document_id": "doc_022.pdf", "page": 3, "section": "Operating Expenses"}
-        ],
+        "evidence": [{"document_id": "doc_022.pdf", "page": 3, "section": "Operating Expenses"}],
         "params": {"values": ["Marketing", "R&D", "Logistics"]},
     }
     answer = StrictAnswer(**data)
@@ -165,9 +159,7 @@ def test_valid_insufficient_evidence():
     data = {
         "answer_type": "insufficient_evidence",
         "evidence": [],
-        "params": {
-            "reason": "No document in the indexed corpus reports restructuring expenses."
-        },
+        "params": {"reason": "No document in the indexed corpus reports restructuring expenses."},
     }
     answer = StrictAnswer(**data)
     assert answer.answer_type == AnswerType.INSUFFICIENT_EVIDENCE.value
@@ -208,9 +200,7 @@ def test_document_block_schema():
 
 def test_search_query_roundtrip():
     """Verify retrieval-api request and response schemas."""
-    req = SearchQueryRequest(
-        query="What was the amount of Finished Goods in 2019?", top_k=30, top_n=5
-    )
+    req = SearchQueryRequest(query="What was the amount of Finished Goods in 2019?", top_k=30, top_n=5)
     assert req.top_k == 30
 
     chunk = RetrievedChunk(
@@ -222,9 +212,7 @@ def test_search_query_roundtrip():
         dense_score=0.88,
         sparse_score=14.5,
     )
-    resp = SearchQueryResponse(
-        query=req.query, results=[chunk], total_found=1, execution_time_ms=12.5
-    )
+    resp = SearchQueryResponse(query=req.query, results=[chunk], total_found=1, execution_time_ms=12.5)
     assert resp.total_found == 1
     assert resp.results[0].document_id == "cts-corporation_2019.pdf"
 

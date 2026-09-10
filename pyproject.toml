@@ -1,0 +1,31 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "notebooks",
+    "*.ipynb",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = [
+    "E501",   # line length violations (handled by formatter)
+    "E402",   # module level import not at top of file (common in scripts setting sys.path)
+    "F401",   # unused imports (non-blocking for team workflow)
+    "F841",   # unused local variables
+    "BLE001", # blind Exception catch
+    "TRY004", # prefer TypeError
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "src"]

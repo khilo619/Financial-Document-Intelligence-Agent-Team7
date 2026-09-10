@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 import httpx
 
+from shared.config import ServiceName, get_service_url
 from shared.models import AnswerType, Citation, StrictAnswer
 
 logger = logging.getLogger("EvalPipelineClient")
@@ -93,9 +94,7 @@ class MockPipelineClient:
                     bbox=[50.0, 100.0, 450.0, 200.0],
                 )
             )
-            retrieved_chunks.append(
-                {"document_id": doc_id, "page": page, "score": 0.89}
-            )
+            retrieved_chunks.append({"document_id": doc_id, "page": page, "score": 0.89})
 
         # Inject controlled errors to test failure modes
         should_inject_error = self.rng.random() < self.error_rate
@@ -104,30 +103,38 @@ class MockPipelineClient:
             error_type = self.rng.choice(["calc_error", "retrieval_miss", "abstention"])
 
             if error_type == "calc_error" and isinstance(gold_answer, (int, float)):
-                # Simulate arithmetic or decimal point mistake (e.g. 10x or 1.5x)
-                corrupted_val = round(float(gold_answer) * 1.5, 2)
-                answer = StrictAnswer(
-                    answer_type=AnswerType.CALCULATED.value,
-                    evidence=citations or [Citation(document_id="doc_001.pdf", page=1)],
-                    params={
-                        "value": corrupted_val,
-                        "formula": f"corrupted_formula({derivation})",
-                    },
-                )
+                # Simulate calculation mistake: valid math formula that yields wrong financial figure
+                offset = 10.0
+                corrupted_val = round(float(gold_answer) + offset, 2)
+                try:
+                    corrupted_formula = (
+                        f"({derivation}) + {offset}"
+                        if derivation and derivation != "calculated_formula"
+                        else str(corrupted_val)
+                    )
+                    answer = StrictAnswer(
+                        answer_type=AnswerType.CALCULATED.value,
+                        evidence=citations or [Citation(document_id="doc_001.pdf", page=1)],
+                        params={
+                            "value": corrupted_val,
+                            "formula": corrupted_formula,
+                        },
+                    )
+                except Exception:
+                    answer = StrictAnswer(
+                        answer_type=AnswerType.CALCULATED.value,
+                        evidence=citations or [Citation(document_id="doc_001.pdf", page=1)],
+                        params={
+                            "value": corrupted_val,
+                            "formula": str(corrupted_val),
+                        },
+                    )
                 return answer, retrieved_chunks, simulated_latency
 
             elif error_type == "retrieval_miss":
                 # Replace evidence with distractor
-                distractor_chunks = [
-                    {
-                        "document_id": "distractor_unrelated_2018.pdf",
-                        "page": 4,
-                        "score": 0.42,
-                    }
-                ]
-                distractor_citations = [
-                    Citation(document_id="distractor_unrelated_2018.pdf", page=4)
-                ]
+                distractor_chunks = [{"document_id": "distractor_unrelated_2018.pdf", "page": 4, "score": 0.42}]
+                distractor_citations = [Citation(document_id="distractor_unrelated_2018.pdf", page=4)]
                 answer = StrictAnswer(
                     answer_type=AnswerType.DIRECT.value,
                     evidence=distractor_citations,
@@ -139,25 +146,28 @@ class MockPipelineClient:
                 answer = StrictAnswer(
                     answer_type=AnswerType.INSUFFICIENT_EVIDENCE.value,
                     evidence=[],
-                    params={
-                        "reason": "Grounding facts were missing from retrieved pages."
-                    },
+                    params={"reason": "Grounding facts were missing from retrieved pages."},
                 )
                 return answer, retrieved_chunks, simulated_latency
 
         # Generate correct ground-truth response
         if gold_type == "arithmetic":
             numeric_val = float(gold_answer) if gold_answer is not None else 0.0
-            answer = StrictAnswer(
-                answer_type=AnswerType.CALCULATED.value,
-                evidence=citations or [Citation(document_id="doc_default.pdf", page=1)],
-                params={"value": numeric_val, "formula": derivation},
-            )
+            try:
+                answer = StrictAnswer(
+                    answer_type=AnswerType.CALCULATED.value,
+                    evidence=citations or [Citation(document_id="doc_default.pdf", page=1)],
+                    params={"value": numeric_val, "formula": derivation},
+                )
+            except Exception:
+                answer = StrictAnswer(
+                    answer_type=AnswerType.CALCULATED.value,
+                    evidence=citations or [Citation(document_id="doc_default.pdf", page=1)],
+                    params={"value": numeric_val, "formula": str(numeric_val)},
+                )
         elif gold_type == "multi-span":
             vals = (
-                [str(x) for x in gold_answer]
-                if isinstance(gold_answer, list)
-                else [str(gold_answer), "secondary_item"]
+                [str(x) for x in gold_answer] if isinstance(gold_answer, list) else [str(gold_answer), "secondary_item"]
             )
             if len(vals) < 2:
                 vals.append("supplemental_span")
@@ -174,9 +184,7 @@ class MockPipelineClient:
             )
         else:
             # Default to direct answer
-            val = (
-                str(gold_answer) if gold_answer is not None else "Factual direct answer"
-            )
+            val = str(gold_answer) if gold_answer is not None else "Factual direct answer"
             answer = StrictAnswer(
                 answer_type=AnswerType.DIRECT.value,
                 evidence=citations or [Citation(document_id="doc_default.pdf", page=1)],
@@ -193,10 +201,8 @@ class HttpPipelineClient:
     Connects to orchestrator-api (Port 8001) or agent-service (Port 8004) via HTTP POST /ask.
     """
 
-    def __init__(
-        self, endpoint_url: str = "http://localhost:8001/ask", timeout: float = 30.0
-    ):
-        self.endpoint_url = endpoint_url
+    def __init__(self, endpoint_url: str | None = None, timeout: float = 30.0):
+        self.endpoint_url = endpoint_url or f"{get_service_url(ServiceName.ORCHESTRATOR.value)}/ask"
         self.timeout = timeout
 
     def query(
@@ -222,14 +228,14 @@ class HttpPipelineClient:
             latency_ms = (time.perf_counter() - start) * 1000.0
             answer_payload = data.get("answer", {})
             strict_answer = StrictAnswer(**answer_payload)
-            retrieved = data.get("retrieved_chunks", [])
+            retrieved = data.get("retrieved_chunks") or [
+                {"document_id": c.document_id, "page": c.page} for c in strict_answer.evidence
+            ]
             return strict_answer, retrieved, latency_ms
 
         except Exception as exc:  # noqa: BLE001
             latency_ms = (time.perf_counter() - start) * 1000.0
-            logger.error(
-                "HttpPipelineClient failed for question %s: %s", question_id, exc
-            )
+            logger.error("HttpPipelineClient failed for question %s: %s", question_id, exc)
             fallback = StrictAnswer(
                 answer_type=AnswerType.INSUFFICIENT_EVIDENCE.value,
                 evidence=[],

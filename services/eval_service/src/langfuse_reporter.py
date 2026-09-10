@@ -54,9 +54,7 @@ class LangfuseReporter:
     def _initialize_client(self) -> None:
         """Initializes Langfuse client if enabled and keys are provided."""
         if not self.enabled:
-            logger.info(
-                "Langfuse tracing is disabled via configuration (offline mode)."
-            )
+            logger.info("Langfuse tracing is disabled via configuration (offline mode).")
             return
 
         if not LANGFUSE_AVAILABLE:
@@ -64,17 +62,13 @@ class LangfuseReporter:
             return
 
         if not self.public_key or not self.secret_key:
-            logger.warning(
-                "Langfuse public/secret keys missing. Falling back to local offline mode."
-            )
+            logger.warning("Langfuse public/secret keys missing. Falling back to local offline mode.")
             self.enabled = False
             return
 
         # Check if keys are placeholders from .env.example
         if "sample" in self.public_key or "sample" in self.secret_key:
-            logger.info(
-                "Sample/dummy Langfuse keys detected. Operating in simulated offline mode."
-            )
+            logger.info("Sample/dummy Langfuse keys detected. Operating in simulated offline mode.")
             self.enabled = False
             return
 
@@ -86,9 +80,7 @@ class LangfuseReporter:
             )
             logger.info("Langfuse client connected to host: %s", self.host)
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Failed to initialize Langfuse client: %s. Using offline mode.", exc
-            )
+            logger.warning("Failed to initialize Langfuse client: %s. Using offline mode.", exc)
             self.enabled = False
             self.client = None
 
@@ -135,9 +127,7 @@ class LangfuseReporter:
                 synced_count += 1
 
             self.client.flush()
-            logger.info(
-                "Synced %d items to Langfuse dataset '%s'.", synced_count, dataset_name
-            )
+            logger.info("Synced %d items to Langfuse dataset '%s'.", synced_count, dataset_name)
             return synced_count
 
         except Exception as exc:  # noqa: BLE001
@@ -195,9 +185,7 @@ class LangfuseReporter:
             return trace.id
 
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Failed to dispatch scores to Langfuse for %s: %s", question_id, exc
-            )
+            logger.warning("Failed to dispatch scores to Langfuse for %s: %s", question_id, exc)
             return f"err_trace_{question_id}"
 
     def flush(self) -> None:

@@ -44,11 +44,7 @@ def exact_match(prediction: Any, ground_truth: Any) -> float:
     # Try numeric equality first if both parse as numbers
     pred_num = parse_numerical_value(prediction)
     true_num = parse_numerical_value(ground_truth)
-    if (
-        pred_num is not None
-        and true_num is not None
-        and abs(pred_num - true_num) <= 1e-6
-    ):
+    if pred_num is not None and true_num is not None and abs(pred_num - true_num) <= 1e-6:
         return 1.0
 
     return 1.0 if normalize_text(prediction) == normalize_text(ground_truth) else 0.0

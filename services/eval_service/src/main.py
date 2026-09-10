@@ -10,17 +10,16 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from services.eval_service.src.benchmark import load_benchmark_dataset, run_benchmark
-from services.eval_service.src.langfuse_reporter import LangfuseReporter
-from services.eval_service.src.mock_pipeline import (
+from shared.config import ServiceName, get_service_url
+
+from .benchmark import load_benchmark_dataset, run_benchmark
+from .langfuse_reporter import LangfuseReporter
+from .mock_pipeline import (
     HttpPipelineClient,
     MockPipelineClient,
 )
-from shared.config import ServiceName
 
-logging.basicConfig(
-    level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
 logger = logging.getLogger("EvalService")
 
 app = FastAPI(
@@ -34,18 +33,10 @@ LATEST_REPORT: dict[str, Any] | None = None
 
 
 class BenchmarkRunRequest(BaseModel):
-    sample_size: int = Field(
-        default=10, ge=1, le=500, description="Number of questions to run"
-    )
-    task_family: str | None = Field(
-        default=None, description="Optional task family filter"
-    )
-    use_mock: bool = Field(
-        default=True, description="Whether to use MockPipelineClient or live HTTP"
-    )
-    endpoint_url: str | None = Field(
-        default=None, description="Custom HTTP endpoint for live pipeline"
-    )
+    sample_size: int = Field(default=10, ge=1, le=500, description="Number of questions to run")
+    task_family: str | None = Field(default=None, description="Optional task family filter")
+    use_mock: bool = Field(default=True, description="Whether to use MockPipelineClient or live HTTP")
+    endpoint_url: str | None = Field(default=None, description="Custom HTTP endpoint for live pipeline")
 
 
 class BenchmarkRunResponse(BaseModel):
@@ -87,16 +78,13 @@ def execute_benchmark(request: BenchmarkRunRequest):
     try:
         dataset = load_benchmark_dataset()
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to load benchmark dataset: {exc}"
-        ) from exc
+        raise HTTPException(status_code=500, detail=f"Failed to load benchmark dataset: {exc}") from exc
 
+    default_orchestrator_url = f"{get_service_url(ServiceName.ORCHESTRATOR.value)}/ask"
     client = (
         MockPipelineClient()
         if request.use_mock
-        else HttpPipelineClient(
-            endpoint_url=request.endpoint_url or "http://localhost:8001/ask"
-        )
+        else HttpPipelineClient(endpoint_url=request.endpoint_url or default_orchestrator_url)
     )
     reporter = LangfuseReporter()
 
