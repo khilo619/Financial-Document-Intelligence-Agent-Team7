@@ -54,7 +54,6 @@ import torch
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-
 # =============================================================================
 # PROJECT PATHS
 # =============================================================================
@@ -90,10 +89,10 @@ if str(RETRIEVAL_SRC) not in sys.path:
 
 from embedder import Embedder
 
-
 # =============================================================================
 # DATASET DISCOVERY
 # =============================================================================
+
 
 def find_json_files() -> dict[str, list[Path]]:
     """
@@ -109,12 +108,8 @@ def find_json_files() -> dict[str, list[Path]]:
     result: dict[str, list[Path]] = {}
 
     for split_name, root in split_roots.items():
-
         if not root.exists():
-            print(
-                f"[WARNING] Split directory does not exist: "
-                f"{root}"
-            )
+            print(f"[WARNING] Split directory does not exist: {root}")
 
             result[split_name] = []
 
@@ -124,9 +119,7 @@ def find_json_files() -> dict[str, list[Path]]:
 
         result[split_name] = files
 
-        print(
-            f"[{split_name}] Found {len(files)} JSON files"
-        )
+        print(f"[{split_name}] Found {len(files)} JSON files")
 
     return result
 
@@ -134,6 +127,7 @@ def find_json_files() -> dict[str, list[Path]]:
 # =============================================================================
 # JSON DOCUMENT LOADING
 # =============================================================================
+
 
 def load_document_blocks(
     split_name: str,
@@ -163,22 +157,16 @@ def load_document_blocks(
     pages = document.get("pages", [])
 
     for page_index, page in enumerate(pages):
-
         # TAT-DQA page numbering is 1-based.
         page_number = page_index + 1
 
         page_blocks = page.get("blocks", [])
 
         for block_index, block in enumerate(page_blocks):
-
             block_uuid = block.get("uuid")
 
             if not block_uuid:
-                block_uuid = (
-                    f"{document_id}"
-                    f":page-{page_number}"
-                    f":block-{block_index}"
-                )
+                block_uuid = f"{document_id}:page-{page_number}:block-{block_index}"
 
             text = block.get("text", "")
 
@@ -204,30 +192,16 @@ def load_document_blocks(
 
             block_data = {
                 "block_id": str(block_uuid),
-
                 "document_id": document_id,
-
                 "page": page_number,
-
                 "content_type": "text",
-
                 "markdown_content": text,
-
                 "bbox": bbox,
-
                 "metadata": {
                     "source_doc_uid": document_id,
-
-                    "source_document": (
-                        f"{document_id}.pdf"
-                    ),
-
+                    "source_document": (f"{document_id}.pdf"),
                     "source_split": split_name,
-
-                    "original_block_uuid": str(
-                        block_uuid
-                    ),
-
+                    "original_block_uuid": str(block_uuid),
                     "order": order,
                 },
             }
@@ -241,15 +215,13 @@ def load_document_blocks(
 # QDRANT CONNECTION
 # =============================================================================
 
+
 def create_qdrant_client() -> QdrantClient:
     """
     Create Qdrant client.
     """
 
-    print(
-        f"Connecting to Qdrant at "
-        f"{QDRANT_HOST}:{QDRANT_PORT}..."
-    )
+    print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
 
     client = QdrantClient(
         host=QDRANT_HOST,
@@ -259,14 +231,9 @@ def create_qdrant_client() -> QdrantClient:
     # Test connection.
     collections = client.get_collections()
 
-    print(
-        "Qdrant connection successful."
-    )
+    print("Qdrant connection successful.")
 
-    print(
-        f"Existing collections: "
-        f"{[c.name for c in collections.collections]}"
-    )
+    print(f"Existing collections: {[c.name for c in collections.collections]}")
 
     return client
 
@@ -275,6 +242,7 @@ def create_qdrant_client() -> QdrantClient:
 # RESET COLLECTION
 # =============================================================================
 
+
 def reset_collection(
     client: QdrantClient,
 ) -> None:
@@ -282,31 +250,17 @@ def reset_collection(
     Delete and recreate the Qdrant collection.
     """
 
-    print(
-        f"[RESET] Deleting collection "
-        f"'{COLLECTION_NAME}'..."
-    )
+    print(f"[RESET] Deleting collection '{COLLECTION_NAME}'...")
 
     try:
-        client.delete_collection(
-            collection_name=COLLECTION_NAME
-        )
+        client.delete_collection(collection_name=COLLECTION_NAME)
 
-        print(
-            "[RESET] Collection deleted."
-        )
+        print("[RESET] Collection deleted.")
 
     except Exception as exc:
+        print(f"[RESET] Collection did not exist or could not be deleted: {exc}")
 
-        print(
-            "[RESET] Collection did not exist "
-            f"or could not be deleted: {exc}"
-        )
-
-    print(
-        f"[RESET] Creating collection "
-        f"'{COLLECTION_NAME}'..."
-    )
+    print(f"[RESET] Creating collection '{COLLECTION_NAME}'...")
 
     client.create_collection(
         collection_name=COLLECTION_NAME,
@@ -316,14 +270,13 @@ def reset_collection(
         ),
     )
 
-    print(
-        "[RESET] Collection recreated."
-    )
+    print("[RESET] Collection recreated.")
 
 
 # =============================================================================
 # ENSURE COLLECTION EXISTS
 # =============================================================================
+
 
 def ensure_collection(
     client: QdrantClient,
@@ -334,28 +287,16 @@ def ensure_collection(
 
     collections = client.get_collections()
 
-    names = {
-        collection.name
-        for collection in collections.collections
-    }
+    names = {collection.name for collection in collections.collections}
 
     if COLLECTION_NAME in names:
-
-        print(
-            f"Collection '{COLLECTION_NAME}' "
-            f"already exists."
-        )
+        print(f"Collection '{COLLECTION_NAME}' already exists.")
 
         return
 
-    print(
-        f"Collection '{COLLECTION_NAME}' "
-        f"does not exist."
-    )
+    print(f"Collection '{COLLECTION_NAME}' does not exist.")
 
-    print(
-        "Creating collection..."
-    )
+    print("Creating collection...")
 
     client.create_collection(
         collection_name=COLLECTION_NAME,
@@ -365,14 +306,13 @@ def ensure_collection(
         ),
     )
 
-    print(
-        "Collection created."
-    )
+    print("Collection created.")
 
 
 # =============================================================================
 # DETERMINISTIC POINT ID
 # =============================================================================
+
 
 def make_point_id(
     document_id: str,
@@ -388,10 +328,7 @@ def make_point_id(
     existing points will be overwritten instead of duplicated.
     """
 
-    point_key = (
-        f"{document_id}:"
-        f"{block_id}"
-    )
+    point_key = f"{document_id}:{block_id}"
 
     return str(
         uuid.uuid5(
@@ -405,6 +342,7 @@ def make_point_id(
 # INDEX ONE BATCH
 # =============================================================================
 
+
 def index_batch(
     client: QdrantClient,
     embedder: Embedder,
@@ -417,18 +355,13 @@ def index_batch(
     if not blocks:
         return 0
 
-    texts = [
-        block["markdown_content"]
-        for block in blocks
-    ]
+    texts = [block["markdown_content"] for block in blocks]
 
     # -------------------------------------------------------------------------
     # Generate embeddings
     # -------------------------------------------------------------------------
 
-    embeddings = embedder.embeddings.embed_documents(
-        texts
-    )
+    embeddings = embedder.embeddings.embed_documents(texts)
 
     # -------------------------------------------------------------------------
     # Build Qdrant points
@@ -440,7 +373,6 @@ def index_batch(
         blocks,
         embeddings,
     ):
-
         point_id = make_point_id(
             block["document_id"],
             block["block_id"],
@@ -448,25 +380,17 @@ def index_batch(
 
         payload = {
             "chunk_id": block["block_id"],
-
             "document_id": block["document_id"],
-
             "page": block["page"],
-
             "content_type": block["content_type"],
-
             "content": block["markdown_content"],
-
             "bbox": block["bbox"],
-
             "metadata": block["metadata"],
         }
 
         point = PointStruct(
             id=point_id,
-
             vector=embedding,
-
             payload=payload,
         )
 
@@ -478,9 +402,7 @@ def index_batch(
 
     client.upsert(
         collection_name=COLLECTION_NAME,
-
         points=points,
-
         wait=True,
     )
 
@@ -490,6 +412,7 @@ def index_batch(
 # =============================================================================
 # INDEX ONE DOCUMENT
 # =============================================================================
+
 
 def index_document(
     client: QdrantClient,
@@ -517,16 +440,11 @@ def index_document(
         len(blocks),
         batch_size,
     ):
-
-        batch = blocks[
-            start:start + batch_size
-        ]
+        batch = blocks[start : start + batch_size]
 
         indexed += index_batch(
             client=client,
-
             embedder=embedder,
-
             blocks=batch,
         )
 
@@ -536,6 +454,7 @@ def index_document(
 # =============================================================================
 # MAIN INDEXING FUNCTION
 # =============================================================================
+
 
 def run_indexing(
     client: QdrantClient,
@@ -547,29 +466,18 @@ def run_indexing(
     Index the entire TAT-DQA dataset.
     """
 
-    total_documents = sum(
-        len(files)
-        for files in files_by_split.values()
-    )
+    total_documents = sum(len(files) for files in files_by_split.values())
 
     processed_documents = 0
 
     total_blocks = 0
 
     print()
-    print(
-        "Starting TAT-DQA indexing..."
-    )
+    print("Starting TAT-DQA indexing...")
 
-    print(
-        f"Total documents: "
-        f"{total_documents}"
-    )
+    print(f"Total documents: {total_documents}")
 
-    print(
-        f"Batch size: "
-        f"{batch_size}"
-    )
+    print(f"Batch size: {batch_size}")
 
     print()
 
@@ -582,7 +490,6 @@ def run_indexing(
         "dev",
         "test",
     ):
-
         files = files_by_split.get(
             split_name,
             [],
@@ -591,33 +498,21 @@ def run_indexing(
         if not files:
             continue
 
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
 
-        print(
-            f"INDEXING SPLIT: {split_name.upper()}"
-        )
+        print(f"INDEXING SPLIT: {split_name.upper()}")
 
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
 
         split_blocks = 0
 
         for file_path in files:
-
             try:
-
                 indexed = index_document(
                     client=client,
-
                     embedder=embedder,
-
                     split_name=split_name,
-
                     file_path=file_path,
-
                     batch_size=batch_size,
                 )
 
@@ -640,23 +535,14 @@ def run_indexing(
                 )
 
             except Exception as exc:
-
                 print()
-                print(
-                    "[ERROR] Failed to index:"
-                )
+                print("[ERROR] Failed to index:")
 
-                print(
-                    f"  Split: {split_name}"
-                )
+                print(f"  Split: {split_name}")
 
-                print(
-                    f"  File: {file_path}"
-                )
+                print(f"  File: {file_path}")
 
-                print(
-                    f"  Error: {exc}"
-                )
+                print(f"  Error: {exc}")
 
                 print()
 
@@ -666,14 +552,9 @@ def run_indexing(
 
         print()
 
-        print(
-            f"[{split_name}] Completed."
-        )
+        print(f"[{split_name}] Completed.")
 
-        print(
-            f"[{split_name}] Indexed blocks: "
-            f"{split_blocks}"
-        )
+        print(f"[{split_name}] Indexed blocks: {split_blocks}")
 
         print()
 
@@ -683,6 +564,7 @@ def run_indexing(
 # =============================================================================
 # VERIFY QDRANT
 # =============================================================================
+
 
 def verify_collection(
     client: QdrantClient,
@@ -697,51 +579,31 @@ def verify_collection(
     """
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        "QDRANT VERIFICATION"
-    )
+    print("QDRANT VERIFICATION")
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    collection_info = client.get_collection(
-        collection_name=COLLECTION_NAME
-    )
+    collection_info = client.get_collection(collection_name=COLLECTION_NAME)
 
-    print(
-        f"Collection: "
-        f"{COLLECTION_NAME}"
-    )
+    print(f"Collection: {COLLECTION_NAME}")
 
-    print(
-        f"Points count: "
-        f"{collection_info.points_count}"
-    )
+    print(f"Points count: {collection_info.points_count}")
 
-    print(
-        f"Vector size: "
-        f"{VECTOR_SIZE}"
-    )
+    print(f"Vector size: {VECTOR_SIZE}")
 
-    print(
-        "Distance: COSINE"
-    )
+    print("Distance: COSINE")
 
     print()
 
-    print(
-        "Qdrant verification completed."
-    )
+    print("Qdrant verification completed.")
 
 
 # =============================================================================
 # GPU INFORMATION
 # =============================================================================
+
 
 def print_gpu_info() -> None:
     """
@@ -749,52 +611,25 @@ def print_gpu_info() -> None:
     """
 
     print()
-    print(
-        "GPU / CUDA INFORMATION"
-    )
+    print("GPU / CUDA INFORMATION")
 
-    print(
-        "-" * 40
-    )
+    print("-" * 40)
 
-    print(
-        f"PyTorch version: "
-        f"{torch.__version__}"
-    )
+    print(f"PyTorch version: {torch.__version__}")
 
-    print(
-        f"CUDA available: "
-        f"{torch.cuda.is_available()}"
-    )
+    print(f"CUDA available: {torch.cuda.is_available()}")
 
     if torch.cuda.is_available():
+        print(f"CUDA version: {torch.version.cuda}")
 
-        print(
-            f"CUDA version: "
-            f"{torch.version.cuda}"
-        )
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-        print(
-            f"GPU: "
-            f"{torch.cuda.get_device_name(0)}"
-        )
+        total_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
 
-        total_memory = (
-            torch.cuda.get_device_properties(0)
-            .total_memory
-            / (1024 ** 3)
-        )
-
-        print(
-            f"GPU memory: "
-            f"{total_memory:.2f} GB"
-        )
+        print(f"GPU memory: {total_memory:.2f} GB")
 
     else:
-
-        print(
-            "Running on CPU."
-        )
+        print("Running on CPU.")
 
     print()
 
@@ -803,37 +638,22 @@ def print_gpu_info() -> None:
 # ARGUMENT PARSER
 # =============================================================================
 
+
 def parse_args() -> argparse.Namespace:
 
-    parser = argparse.ArgumentParser(
-        description=(
-            "Index TAT-DQA documents "
-            "into Qdrant."
-        )
-    )
+    parser = argparse.ArgumentParser(description=("Index TAT-DQA documents into Qdrant."))
 
     parser.add_argument(
         "--reset",
-
         action="store_true",
-
-        help=(
-            "Delete and recreate the "
-            "Qdrant collection before indexing."
-        ),
+        help=("Delete and recreate the Qdrant collection before indexing."),
     )
 
     parser.add_argument(
         "--batch-size",
-
         type=int,
-
         default=BATCH_SIZE,
-
-        help=(
-            f"Embedding batch size "
-            f"(default: {BATCH_SIZE})."
-        ),
+        help=(f"Embedding batch size (default: {BATCH_SIZE})."),
     )
 
     return parser.parse_args()
@@ -843,42 +663,25 @@ def parse_args() -> argparse.Namespace:
 # MAIN
 # =============================================================================
 
+
 def main() -> None:
 
     args = parse_args()
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        "PROJECT LEDGER - TAT-DQA INDEXING"
-    )
+    print("PROJECT LEDGER - TAT-DQA INDEXING")
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        f"Project root: "
-        f"{PROJECT_ROOT}"
-    )
+    print(f"Project root: {PROJECT_ROOT}")
 
-    print(
-        f"Dataset root: "
-        f"{DATASET_ROOT}"
-    )
+    print(f"Dataset root: {DATASET_ROOT}")
 
-    print(
-        f"Batch size: "
-        f"{args.batch_size}"
-    )
+    print(f"Batch size: {args.batch_size}")
 
-    print(
-        f"Reset collection: "
-        f"{args.reset}"
-    )
+    print(f"Reset collection: {args.reset}")
 
     print()
 
@@ -892,39 +695,27 @@ def main() -> None:
     # STEP 1 - Discover documents
     # =========================================================================
 
-    print(
-        "[1/4] Discovering TAT-DQA documents..."
-    )
+    print("[1/4] Discovering TAT-DQA documents...")
 
     files_by_split = find_json_files()
 
-    total_documents = sum(
-        len(files)
-        for files in files_by_split.values()
-    )
+    total_documents = sum(len(files) for files in files_by_split.values())
 
-    print(
-        f"Total documents: "
-        f"{total_documents}"
-    )
+    print(f"Total documents: {total_documents}")
 
     # =========================================================================
     # STEP 2 - Qdrant
     # =========================================================================
 
     print()
-    print(
-        "[2/4] Connecting to Qdrant..."
-    )
+    print("[2/4] Connecting to Qdrant...")
 
     client = create_qdrant_client()
 
     if args.reset:
-
         reset_collection(client)
 
     else:
-
         ensure_collection(client)
 
     # =========================================================================
@@ -932,51 +723,30 @@ def main() -> None:
     # =========================================================================
 
     print()
-    print(
-        "[3/4] Loading embedding model..."
-    )
+    print("[3/4] Loading embedding model...")
 
-    embedder = Embedder(
-        model_name=EMBEDDING_MODEL
-    )
+    embedder = Embedder(model_name=EMBEDDING_MODEL)
 
-    print(
-        f"Model: "
-        f"{EMBEDDING_MODEL}"
-    )
+    print(f"Model: {EMBEDDING_MODEL}")
 
-    print(
-        f"Device: "
-        f"{embedder.device}"
-    )
+    print(f"Device: {embedder.device}")
 
     if embedder.device == "cuda":
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-        print(
-            f"GPU: "
-            f"{torch.cuda.get_device_name(0)}"
-        )
-
-    print(
-        "Embedding model loaded successfully."
-    )
+    print("Embedding model loaded successfully.")
 
     # =========================================================================
     # STEP 4 - Index
     # =========================================================================
 
     print()
-    print(
-        "[4/4] Indexing documents..."
-    )
+    print("[4/4] Indexing documents...")
 
     total_blocks = run_indexing(
         client=client,
-
         embedder=embedder,
-
         files_by_split=files_by_split,
-
         batch_size=args.batch_size,
     )
 
@@ -987,36 +757,19 @@ def main() -> None:
     verify_collection(client)
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        "INDEXING COMPLETED SUCCESSFULLY"
-    )
+    print("INDEXING COMPLETED SUCCESSFULLY")
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
-    print(
-        f"Documents discovered: "
-        f"{total_documents}"
-    )
+    print(f"Documents discovered: {total_documents}")
 
-    print(
-        f"Blocks indexed: "
-        f"{total_blocks}"
-    )
+    print(f"Blocks indexed: {total_blocks}")
 
-    print(
-        f"Qdrant collection: "
-        f"{COLLECTION_NAME}"
-    )
+    print(f"Qdrant collection: {COLLECTION_NAME}")
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
 
 # =============================================================================

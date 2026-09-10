@@ -36,10 +36,8 @@ class RRFFusion:
 
         # Process every retrieval system.
         for source_index, result_list in enumerate(result_lists):
-
             # Rank starts from 1, not 0.
             for rank, result in enumerate(result_list, start=1):
-
                 chunk_id = result["chunk_id"]
 
                 # RRF formula:
@@ -47,9 +45,7 @@ class RRFFusion:
                 score = 1 / (self.k + rank)
 
                 # Add this rank contribution to the chunk's total RRF score.
-                rrf_scores[chunk_id] = (
-                    rrf_scores.get(chunk_id, 0.0) + score
-                )
+                rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + score
 
                 # Keep the first copy of the document.
                 # This prevents BM25 from overwriting the Qdrant result.

@@ -10,17 +10,14 @@ from qdrant_client.models import (
 )
 
 from shared.models import DocumentBlock
-from .embedder import Embedder
 
+from .embedder import Embedder
 
 # ============================================================
 # Configuration
 # ============================================================
 
-PROCESSED_JSON = Path(
-    "/data/tat_dqa/processed_json/"
-    "f8867689504c406cebeb5d25694d0327_processed.json"
-)
+PROCESSED_JSON = Path("/data/tat_dqa/processed_json/f8867689504c406cebeb5d25694d0327_processed.json")
 
 COLLECTION_NAME = "ledger_documents_processed_test"
 VECTOR_SIZE = 1024
@@ -38,6 +35,7 @@ MODEL_PATH = os.getenv(
 # Main
 # ============================================================
 
+
 def main():
 
     print("=" * 70)
@@ -51,9 +49,7 @@ def main():
     print(f"\nProcessed JSON: {PROCESSED_JSON}")
 
     if not PROCESSED_JSON.exists():
-        raise FileNotFoundError(
-            f"Processed JSON not found: {PROCESSED_JSON}"
-        )
+        raise FileNotFoundError(f"Processed JSON not found: {PROCESSED_JSON}")
 
     # --------------------------------------------------------
     # 2. Load JSON
@@ -71,20 +67,12 @@ def main():
     # 3. Convert to canonical DocumentBlock objects
     # --------------------------------------------------------
 
-    blocks = [
-        DocumentBlock.model_validate(block)
-        for block in raw_blocks
-    ]
+    blocks = [DocumentBlock.model_validate(block) for block in raw_blocks]
 
     print("\nDocumentBlock validation: OK")
 
     for block in blocks:
-        print(
-            f"  - {block.block_id} | "
-            f"{block.content_type} | "
-            f"page={block.page} | "
-            f"{len(block.markdown_content)} chars"
-        )
+        print(f"  - {block.block_id} | {block.content_type} | page={block.page} | {len(block.markdown_content)} chars")
 
     # --------------------------------------------------------
     # 4. Initialize embedding model
@@ -100,10 +88,7 @@ def main():
 
     print("\nGenerating embeddings...")
 
-    texts = [
-        block.markdown_content
-        for block in blocks
-    ]
+    texts = [block.markdown_content for block in blocks]
 
     vectors = embedder.embeddings.embed_documents(texts)
 
@@ -121,10 +106,7 @@ def main():
         port=QDRANT_PORT,
     )
 
-    print(
-        f"\nConnected to Qdrant: "
-        f"{QDRANT_HOST}:{QDRANT_PORT}"
-    )
+    print(f"\nConnected to Qdrant: {QDRANT_HOST}:{QDRANT_PORT}")
 
     # --------------------------------------------------------
     # 7. Create isolated test collection
@@ -132,13 +114,9 @@ def main():
 
     collections = client.get_collections().collections
 
-    exists = any(
-        c.name == COLLECTION_NAME
-        for c in collections
-    )
+    exists = any(c.name == COLLECTION_NAME for c in collections)
 
     if not exists:
-
         client.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(
@@ -147,16 +125,10 @@ def main():
             ),
         )
 
-        print(
-            f"Created collection: "
-            f"{COLLECTION_NAME}"
-        )
+        print(f"Created collection: {COLLECTION_NAME}")
 
     else:
-        print(
-            f"Collection already exists: "
-            f"{COLLECTION_NAME}"
-        )
+        print(f"Collection already exists: {COLLECTION_NAME}")
 
     # --------------------------------------------------------
     # 8. Build Qdrant points
@@ -165,7 +137,6 @@ def main():
     points = []
 
     for block, vector in zip(blocks, vectors):
-
         point_id = str(
             uuid.uuid5(
                 uuid.NAMESPACE_DNS,
@@ -201,22 +172,15 @@ def main():
         points=points,
     )
 
-    print(
-        f"\nIndexed {len(points)} blocks successfully."
-    )
+    print(f"\nIndexed {len(points)} blocks successfully.")
 
     # --------------------------------------------------------
     # 10. Verify collection
     # --------------------------------------------------------
 
-    info = client.get_collection(
-        collection_name=COLLECTION_NAME
-    )
+    info = client.get_collection(collection_name=COLLECTION_NAME)
 
-    print(
-        f"Collection points: "
-        f"{info.points_count}"
-    )
+    print(f"Collection points: {info.points_count}")
 
     print("\n" + "=" * 70)
     print("TEST PASSED")

@@ -1,5 +1,5 @@
-from src.qdrant_store import QdrantStore
 from shared.models import DocumentBlock
+from src.qdrant_store import QdrantStore
 
 
 def test_qdrant_content_type_filter():
@@ -10,10 +10,7 @@ def test_qdrant_content_type_filter():
         document_id="pytest-filter.pdf",
         page=1,
         content_type="table",
-        markdown_content=(
-            "| Category | 2019 | 2018 |\n"
-            "| Finished Goods | 9,447 | 8,912 |"
-        ),
+        markdown_content=("| Category | 2019 | 2018 |\n| Finished Goods | 9,447 | 8,912 |"),
         metadata={
             "company": "Pytest Company",
             "year": 2019,
@@ -26,9 +23,7 @@ def test_qdrant_content_type_filter():
         document_id="pytest-filter.pdf",
         page=2,
         content_type="text",
-        markdown_content=(
-            "The company reported strong revenue growth in 2019."
-        ),
+        markdown_content=("The company reported strong revenue growth in 2019."),
         metadata={
             "company": "Pytest Company",
             "year": 2019,
@@ -49,15 +44,9 @@ def test_qdrant_content_type_filter():
 
     assert len(table_results) > 0
 
-    assert all(
-        result["content_type"] == "table"
-        for result in table_results
-    )
+    assert all(result["content_type"] == "table" for result in table_results)
 
-    assert any(
-        result["chunk_id"] == "pytest-filter-table-001"
-        for result in table_results
-    )
+    assert any(result["chunk_id"] == "pytest-filter-table-001" for result in table_results)
 
     text_results = store.search(
         query="revenue growth",
@@ -69,12 +58,6 @@ def test_qdrant_content_type_filter():
 
     assert len(text_results) > 0
 
-    assert all(
-        result["content_type"] == "text"
-        for result in text_results
-    )
+    assert all(result["content_type"] == "text" for result in text_results)
 
-    assert any(
-        result["chunk_id"] == "pytest-filter-text-001"
-        for result in text_results
-    )
+    assert any(result["chunk_id"] == "pytest-filter-text-001" for result in text_results)

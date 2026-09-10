@@ -18,9 +18,7 @@ from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
 
-ANSWER_VALIDATOR_URL = (
-    f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
-)
+ANSWER_VALIDATOR_URL = f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
 
 llm = ChatOpenAI(
     model=DEFAULT_LLM_MODEL,
@@ -47,10 +45,7 @@ def decompose(state: AgentState):
                 "content": (
                     "The original question has been decomposed into "
                     "the following sub-questions:\n\n"
-                    + "\n".join(
-                        f"{i}. {question}"
-                        for i, question in enumerate(last_message.content, start=1)
-                    )
+                    + "\n".join(f"{i}. {question}" for i, question in enumerate(last_message.content, start=1))
                 ),
             }
         ]

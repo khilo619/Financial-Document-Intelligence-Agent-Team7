@@ -175,32 +175,19 @@ services:
       - QDRANT_COLLECTION_NAME=ledger_documents_processed
 
       # ------------------------------------------------------------------------
-      # Local embedding model inside Docker image
+      # Hugging Face models (loaded from persistent cache volume)
       # ------------------------------------------------------------------------
-      - EMBEDDING_MODEL_NAME=/models/huggingface/bge-large-en-v1.5
-
-      # ------------------------------------------------------------------------
-      # Local reranker model inside Docker image
-      # ------------------------------------------------------------------------
-      - RERANKER_MODEL_NAME=/models/huggingface/bge-reranker-large
-
-      # ------------------------------------------------------------------------
-      # Offline mode
-      # Prevent Hugging Face from downloading anything at runtime.
-      # ------------------------------------------------------------------------
-      - HF_HUB_OFFLINE=1
-      - TRANSFORMERS_OFFLINE=1
+      - EMBEDDING_MODEL_NAME=BAAI/bge-large-en-v1.5
+      - RERANKER_MODEL_NAME=BAAI/bge-reranker-large
 
     # --------------------------------------------------------------------------
-    # Processed documents
-    #
-    # Models are NO LONGER mounted as a volume.
-    # They are copied directly into the Docker image by Dockerfile.
+    # Storage and Caches
     # --------------------------------------------------------------------------
     volumes:
       # Mount Zeina's processed output so Retrieval can index it.
-      # Read-only because Retrieval should not modify preprocessing output.
       - ./data/tat_dqa:/data/tat_dqa:ro
+      # Persistent cache for Hugging Face models across runs
+      - huggingface_cache:/root/.cache/huggingface
 
     # --------------------------------------------------------------------------
     # NVIDIA GPU access

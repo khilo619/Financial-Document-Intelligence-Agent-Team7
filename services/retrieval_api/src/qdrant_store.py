@@ -78,10 +78,7 @@ class QdrantStore:
 
         collections = self.client.get_collections().collections
 
-        exists = any(
-            collection.name == self.COLLECTION_NAME
-            for collection in collections
-        )
+        exists = any(collection.name == self.COLLECTION_NAME for collection in collections)
 
         if not exists:
             self.client.create_collection(
@@ -206,28 +203,19 @@ class QdrantStore:
             len(blocks),
             batch_size,
         ):
-            batch = blocks[
-                start:start + batch_size
-            ]
+            batch = blocks[start : start + batch_size]
 
             # -------------------------------------------------
             # Extract texts
             # -------------------------------------------------
 
-            texts = [
-                block.markdown_content
-                for block in batch
-            ]
+            texts = [block.markdown_content for block in batch]
 
             # -------------------------------------------------
             # Generate embeddings for the batch
             # -------------------------------------------------
 
-            vectors = (
-                self.embedder.embeddings.embed_documents(
-                    texts
-                )
-            )
+            vectors = self.embedder.embeddings.embed_documents(texts)
 
             # -------------------------------------------------
             # Build Qdrant points
@@ -274,11 +262,7 @@ class QdrantStore:
 
             total_indexed += len(points)
 
-            print(
-                f"Indexed "
-                f"{total_indexed}/"
-                f"{len(blocks)} blocks"
-            )
+            print(f"Indexed {total_indexed}/{len(blocks)} blocks")
 
         return total_indexed
 
@@ -301,9 +285,7 @@ class QdrantStore:
         # 1. Encode query
         # -----------------------------------------------------
 
-        query_vector = self.embedder.encode(
-            query
-        )
+        query_vector = self.embedder.encode(query)
 
         # -----------------------------------------------------
         # 2. Build filters
@@ -315,7 +297,6 @@ class QdrantStore:
             conditions = []
 
             for key, value in filters.items():
-
                 # ---------------------------------------------
                 # Direct payload fields
                 # ---------------------------------------------
@@ -328,9 +309,7 @@ class QdrantStore:
                     conditions.append(
                         FieldCondition(
                             key=key,
-                            match=MatchValue(
-                                value=value
-                            ),
+                            match=MatchValue(value=value),
                         )
                     )
 
@@ -346,9 +325,7 @@ class QdrantStore:
                     conditions.append(
                         FieldCondition(
                             key=f"metadata.{key}",
-                            match=MatchValue(
-                                value=value
-                            ),
+                            match=MatchValue(value=value),
                         )
                     )
 
@@ -357,9 +334,7 @@ class QdrantStore:
             # ---------------------------------------------
 
             if conditions:
-                query_filter = Filter(
-                    must=conditions
-                )
+                query_filter = Filter(must=conditions)
 
         # -----------------------------------------------------
         # 3. Dense semantic search
@@ -381,20 +356,13 @@ class QdrantStore:
         results = []
 
         for point in search_result.points:
-
             payload = point.payload or {}
 
             results.append(
                 {
-                    "chunk_id": payload.get(
-                        "chunk_id"
-                    ),
-                    "document_id": payload.get(
-                        "document_id"
-                    ),
-                    "page": payload.get(
-                        "page"
-                    ),
+                    "chunk_id": payload.get("chunk_id"),
+                    "document_id": payload.get("document_id"),
+                    "page": payload.get("page"),
                     "content": payload.get(
                         "content",
                         "",
@@ -403,16 +371,12 @@ class QdrantStore:
                         "content_type",
                         "text",
                     ),
-                    "bbox": payload.get(
-                        "bbox"
-                    ),
+                    "bbox": payload.get("bbox"),
                     "metadata": payload.get(
                         "metadata",
                         {},
                     ),
-                    "score": float(
-                        point.score
-                    ),
+                    "score": float(point.score),
                 }
             )
 
@@ -441,7 +405,6 @@ class QdrantStore:
         offset = None
 
         while True:
-
             points, next_offset = self.client.scroll(
                 collection_name=self.COLLECTION_NAME,
                 limit=1000,
@@ -455,20 +418,13 @@ class QdrantStore:
             # -------------------------------------------------
 
             for point in points:
-
                 payload = point.payload or {}
 
                 documents.append(
                     {
-                        "chunk_id": payload.get(
-                            "chunk_id"
-                        ),
-                        "document_id": payload.get(
-                            "document_id"
-                        ),
-                        "page": payload.get(
-                            "page"
-                        ),
+                        "chunk_id": payload.get("chunk_id"),
+                        "document_id": payload.get("document_id"),
+                        "page": payload.get("page"),
                         "content": payload.get(
                             "content",
                             "",
@@ -477,9 +433,7 @@ class QdrantStore:
                             "content_type",
                             "text",
                         ),
-                        "bbox": payload.get(
-                            "bbox"
-                        ),
+                        "bbox": payload.get("bbox"),
                         "metadata": payload.get(
                             "metadata",
                             {},

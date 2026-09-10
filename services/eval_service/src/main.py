@@ -10,9 +10,7 @@ from pydantic import BaseModel
 
 from shared.config import ServiceName
 
-logging.basicConfig(
-    level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
 logger = logging.getLogger("EvalService")
 
 app = FastAPI(
@@ -51,9 +49,7 @@ def run_benchmark(request: BenchmarkRunRequest):
     Runs automated evaluation loop across benchmark questions and computes metrics.
     Full implementation will be completed in Khaled's feature branch.
     """
-    logger.info(
-        "Triggered benchmark evaluation run (sample_size=%d)", request.sample_size
-    )
+    logger.info("Triggered benchmark evaluation run (sample_size=%d)", request.sample_size)
 
     # Scaffold baseline metrics
     return BenchmarkRunResponse(

@@ -46,15 +46,9 @@ class BM25Engine:
 
         self.documents = documents
 
-        texts = [
-            self._build_search_text(document)
-            for document in documents
-        ]
+        texts = [self._build_search_text(document) for document in documents]
 
-        tokenized_documents = [
-            text.lower().split()
-            for text in texts
-        ]
+        tokenized_documents = [text.lower().split() for text in texts]
 
         self.bm25 = BM25Okapi(tokenized_documents)
 
@@ -84,7 +78,6 @@ class BM25Engine:
         metadata = document.get("metadata", {})
 
         for key, expected_value in filters.items():
-
             # Get the actual value from either the document itself
             # or its metadata.
             if key in document:
@@ -126,9 +119,7 @@ class BM25Engine:
 
         # Keep only documents matching the requested filters.
         filtered_indices = [
-            index
-            for index, document in enumerate(self.documents)
-            if self._matches_filters(document, filters)
+            index for index, document in enumerate(self.documents) if self._matches_filters(document, filters)
         ]
 
         # Sort only the allowed documents by BM25 score.

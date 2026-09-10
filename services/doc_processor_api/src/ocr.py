@@ -78,12 +78,8 @@ def get_doc_converter(mode: str | None = None) -> DocumentConverter:
     else:
         logger.info("Initializing DocumentConverter on CPU accelerator device.")
 
-    target_mode = (
-        mode.lower() if mode else os.getenv("DOCLING_TABLE_MODE", "accurate").lower()
-    )
-    selected_table_mode = (
-        TableFormerMode.FAST if target_mode == "fast" else TableFormerMode.ACCURATE
-    )
+    target_mode = mode.lower() if mode else os.getenv("DOCLING_TABLE_MODE", "accurate").lower()
+    selected_table_mode = TableFormerMode.FAST if target_mode == "fast" else TableFormerMode.ACCURATE
     logger.info("Configuring TableFormer engine mode: %s", selected_table_mode.value)
 
     images_scale = float(os.getenv("DOCLING_IMAGES_SCALE", "1.5"))
@@ -96,11 +92,7 @@ def get_doc_converter(mode: str | None = None) -> DocumentConverter:
     pipeline_options.do_table_structure = True
     pipeline_options.table_structure_options.mode = selected_table_mode
 
-    return DocumentConverter(
-        format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-        }
-    )
+    return DocumentConverter(format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)})
 
 
 def process_pdfs_to_custom_schema(
@@ -118,9 +110,7 @@ def process_pdfs_to_custom_schema(
         raise FileNotFoundError(f"PDF not found at: {pdf_path_obj}")
 
     target_images_dir = (
-        Path(images_dir)
-        if images_dir is not None
-        else Path("./TAT-DQA/processed_json/extracted_images")
+        Path(images_dir) if images_dir is not None else Path("./TAT-DQA/processed_json/extracted_images")
     )
     target_images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -192,17 +182,9 @@ def process_pdfs_to_custom_schema(
                     logger.warning("Failed to save image for %s: %s", block_id, e)
                     markdown_image_path = ""
 
-            caption_text = (
-                item.caption.text.strip()
-                if (hasattr(item, "caption") and item.caption)
-                else "Figure/Chart"
-            )
+            caption_text = item.caption.text.strip() if (hasattr(item, "caption") and item.caption) else "Figure/Chart"
 
-            md_content = (
-                f"![{caption_text}]({markdown_image_path})"
-                if markdown_image_path
-                else f"![{caption_text}]"
-            )
+            md_content = f"![{caption_text}]({markdown_image_path})" if markdown_image_path else f"![{caption_text}]"
 
             raw_blocks.append(
                 {

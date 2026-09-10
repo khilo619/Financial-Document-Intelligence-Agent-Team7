@@ -55,15 +55,9 @@ def test_rrf_fusion():
 
     # A and C appear in both retrieval systems,
     # so they should receive contributions from both lists.
-    result_a = next(
-        result for result in results
-        if result["chunk_id"] == "A"
-    )
+    result_a = next(result for result in results if result["chunk_id"] == "A")
 
-    result_c = next(
-        result for result in results
-        if result["chunk_id"] == "C"
-    )
+    result_c = next(result for result in results if result["chunk_id"] == "C")
 
     assert result_a["dense_score"] == 0.90
     assert result_a["sparse_score"] == 10.2
@@ -95,10 +89,7 @@ def test_rrf_results_are_sorted():
         ]
     )
 
-    scores = [
-        result["rrf_score"]
-        for result in results
-    ]
+    scores = [result["rrf_score"] for result in results]
 
     assert scores == sorted(
         scores,

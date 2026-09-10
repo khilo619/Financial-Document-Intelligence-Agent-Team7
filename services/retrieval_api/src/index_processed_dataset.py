@@ -4,9 +4,7 @@ import time
 from pathlib import Path
 
 from shared.models import DocumentBlock
-
 from src.qdrant_store import QdrantStore
-
 
 # ============================================================
 # Configuration
@@ -28,17 +26,14 @@ PROGRESS_FILE = Path("/data/processed_json/.index_progress.json")
 # Helpers
 # ============================================================
 
+
 def get_processed_files():
     """
     Return all real processed JSON files.
 
     Checkpoint files are excluded.
     """
-    files = sorted(
-        p
-        for p in PROCESSED_DIR.glob("*_blocks.json")
-        if "-checkpoint_blocks.json" not in p.name
-    )
+    files = sorted(p for p in PROCESSED_DIR.glob("*_blocks.json") if "-checkpoint_blocks.json" not in p.name)
 
     return files
 
@@ -59,14 +54,9 @@ def load_blocks(json_path: Path):
             data.get("document_blocks", []),
         )
     else:
-        raise ValueError(
-            f"Unexpected JSON structure: {type(data)}"
-        )
+        raise ValueError(f"Unexpected JSON structure: {type(data)}")
 
-    blocks = [
-        DocumentBlock.model_validate(block)
-        for block in raw_blocks
-    ]
+    blocks = [DocumentBlock.model_validate(block) for block in raw_blocks]
 
     return blocks
 
@@ -118,6 +108,7 @@ def save_progress(completed_files):
 # Main
 # ============================================================
 
+
 def main():
 
     print("=" * 70)
@@ -137,11 +128,7 @@ def main():
 
     completed_files = load_progress()
 
-    remaining_files = [
-        path
-        for path in files
-        if path.name not in completed_files
-    ]
+    remaining_files = [path for path in files if path.name not in completed_files]
 
     print(f"Already completed:   {len(completed_files)}")
     print(f"Remaining files:     {len(remaining_files)}")
@@ -176,17 +163,13 @@ def main():
         remaining_files,
         start=1,
     ):
-
         file_start = time.time()
 
         try:
             blocks = load_blocks(json_path)
 
             if not blocks:
-                print(
-                    f"[{file_index}/{len(remaining_files)}] "
-                    f"{json_path.name}: 0 blocks"
-                )
+                print(f"[{file_index}/{len(remaining_files)}] {json_path.name}: 0 blocks")
 
                 completed_files.add(json_path.name)
                 save_progress(completed_files)
@@ -222,43 +205,26 @@ def main():
 
             eta_seconds = avg_file * remaining
 
-            print(
-                f"\n[{file_index}/{len(remaining_files)}] "
-                f"COMPLETED: {json_path.name}"
-            )
+            print(f"\n[{file_index}/{len(remaining_files)}] COMPLETED: {json_path.name}")
 
-            print(
-                f"  Blocks: {len(blocks)}"
-            )
+            print(f"  Blocks: {len(blocks)}")
 
-            print(
-                f"  File time: {elapsed_file:.2f}s"
-            )
+            print(f"  File time: {elapsed_file:.2f}s")
 
-            print(
-                f"  Progress: {completed_now}/{len(files)} files"
-            )
+            print(f"  Progress: {completed_now}/{len(files)} files")
 
-            print(
-                f"  ETA: {eta_seconds / 3600:.2f} hours"
-            )
+            print(f"  ETA: {eta_seconds / 3600:.2f} hours")
 
         except KeyboardInterrupt:
             print("\n\nIndexing interrupted by user.")
-            print(
-                "Progress has been saved for completed files."
-            )
+            print("Progress has been saved for completed files.")
             raise
 
         except Exception as exc:
-            print(
-                f"\nERROR processing {json_path.name}:"
-            )
+            print(f"\nERROR processing {json_path.name}:")
             print(exc)
 
-            print(
-                "\nStopping so the failed file can be investigated."
-            )
+            print("\nStopping so the failed file can be investigated.")
 
             raise
 

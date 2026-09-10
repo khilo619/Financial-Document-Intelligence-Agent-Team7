@@ -516,9 +516,7 @@ def calculate(expression: str) -> float:
     try:
         return float(simpleeval.simple_eval(expression, functions=safe_functions))
     except Exception as e:
-        raise ValueError(
-            f"Arithmetic syntax error in expression '{expression}': {str(e)}"
-        )
+        raise ValueError(f"Arithmetic syntax error in expression '{expression}': {str(e)}")
 
 
 def filter_documents(company: str | None = None, year: int | None = None) -> list[str]:
@@ -664,9 +662,7 @@ class StrictAnswer(BaseModel):
         elif a_type == "calculated":
             calc = CalculatedParams(**params)
             if len(evidence) < 1:
-                raise ValueError(
-                    "Calculated answer requires evidence citations for operands."
-                )
+                raise ValueError("Calculated answer requires evidence citations for operands.")
         elif a_type == "multi_span":
             ms = MultiSpanParams(**params)
             if len(ms.values) < 2:

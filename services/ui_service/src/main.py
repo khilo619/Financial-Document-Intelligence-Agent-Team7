@@ -184,12 +184,7 @@ def _format_answer(
             "N/A",
         )
 
-        return (
-            f"## {value}\n\n"
-            "**Calculated answer**\n\n"
-            f"Formula: `{formula}`\n\n"
-            "✓ **Verified**"
-        )
+        return f"## {value}\n\n**Calculated answer**\n\nFormula: `{formula}`\n\n✓ **Verified**"
 
     if answer_type == "multi_span":
         values = params.get(
@@ -289,12 +284,7 @@ def _format_request_metadata(
         "N/A",
     )
 
-    return (
-        "### Request details\n\n"
-        f"✓ Validated  \n"
-        f"Latency: `{latency} ms`  \n"
-        f"Trace: `{trace_id}`"
-    )
+    return f"### Request details\n\n✓ Validated  \nLatency: `{latency} ms`  \nTrace: `{trace_id}`"
 
 
 # =============================================================================
@@ -375,10 +365,7 @@ def query_ledger(
             exc,
         )
 
-        message = (
-            "LEDGER's backend is currently unavailable. "
-            "No financial answer was generated."
-        )
+        message = "LEDGER's backend is currently unavailable. No financial answer was generated."
 
         _append_message(
             history,
@@ -531,10 +518,7 @@ def upload_document(
 
     if not pdf_path:
         return (
-            (
-                "### Upload status\n\n"
-                "Choose a PDF file before starting document processing."
-            ),
+            ("### Upload status\n\nChoose a PDF file before starting document processing."),
             None,
         )
 
@@ -553,11 +537,7 @@ def upload_document(
         )
 
         return (
-            (
-                "### Upload status\n\n"
-                "The uploaded file is no longer available. "
-                "Please choose the PDF again."
-            ),
+            ("### Upload status\n\nThe uploaded file is no longer available. Please choose the PDF again."),
             None,
         )
 
@@ -633,11 +613,7 @@ def upload_document(
         )
 
         return (
-            (
-                "### ❌ Processing failed\n\n"
-                f"{error_text}\n\n"
-                f"**HTTP status:** `{response.status_code}`"
-            ),
+            (f"### ❌ Processing failed\n\n{error_text}\n\n**HTTP status:** `{response.status_code}`"),
             None,
         )
 
@@ -648,11 +624,7 @@ def upload_document(
         logger.error("Orchestrator returned malformed JSON for document upload.")
 
         return (
-            (
-                "### ❌ Invalid backend response\n\n"
-                "The document was processed, but the backend "
-                "returned malformed JSON."
-            ),
+            ("### ❌ Invalid backend response\n\nThe document was processed, but the backend returned malformed JSON."),
             None,
         )
 
@@ -663,11 +635,7 @@ def upload_document(
         logger.error("Document upload response is not an object.")
 
         return (
-            (
-                "### ❌ Invalid document response\n\n"
-                "The backend returned an unexpected "
-                "document structure."
-            ),
+            ("### ❌ Invalid document response\n\nThe backend returned an unexpected document structure."),
             None,
         )
 
@@ -1034,9 +1002,7 @@ def show_dashboard_view():
 
 def submit_question(user_question, history, session_id):
     """Keep the welcome screen and conversation visibility in sync."""
-    history, question, evidence, metadata, session_id = query_ledger(
-        user_question, history, session_id
-    )
+    history, question, evidence, metadata, session_id = query_ledger(user_question, history, session_id)
     return (
         gr.Chatbot(value=history, visible=bool(history)),
         question,
@@ -1080,15 +1046,9 @@ def build_interface() -> gr.Blocks:
             """)
             new_chat_button = gr.Button("+  New chat", elem_id="new-chat-btn")
             gr.HTML('<div class="nav-label">Workspace</div>')
-            nav_chat = gr.Button(
-                "Chat", elem_id="nav-chat", elem_classes="ledger-nav-btn"
-            )
-            nav_documents = gr.Button(
-                "Documents", elem_id="nav-documents", elem_classes="ledger-nav-btn"
-            )
-            nav_dashboard = gr.Button(
-                "Dashboard", elem_id="nav-dashboard", elem_classes="ledger-nav-btn"
-            )
+            nav_chat = gr.Button("Chat", elem_id="nav-chat", elem_classes="ledger-nav-btn")
+            nav_documents = gr.Button("Documents", elem_id="nav-documents", elem_classes="ledger-nav-btn")
+            nav_dashboard = gr.Button("Dashboard", elem_id="nav-dashboard", elem_classes="ledger-nav-btn")
             gr.HTML("""
                 <div class="sidebar-note">
                     <strong>Answers with evidence.</strong>
@@ -1112,9 +1072,7 @@ def build_interface() -> gr.Blocks:
             </header>
         """)
 
-        with gr.Column(
-            visible=True, elem_id="chat-view", elem_classes="ledger-view"
-        ) as chat_view:
+        with gr.Column(visible=True, elem_id="chat-view", elem_classes="ledger-view") as chat_view:
             gr.HTML("""
                 <div class="view-heading">
                     <div><h1>Research chat</h1><p>Your questions. Grounded in your reports.</p></div>
@@ -1131,15 +1089,9 @@ def build_interface() -> gr.Blocks:
                     </div>
                 """)
                 with gr.Row():
-                    suggestion_1 = gr.Button(
-                        "Compare finished goods", elem_classes="suggestion-btn"
-                    )
-                    suggestion_2 = gr.Button(
-                        "Find operating income", elem_classes="suggestion-btn"
-                    )
-                    suggestion_3 = gr.Button(
-                        "Calculate a change", elem_classes="suggestion-btn"
-                    )
+                    suggestion_1 = gr.Button("Compare finished goods", elem_classes="suggestion-btn")
+                    suggestion_2 = gr.Button("Find operating income", elem_classes="suggestion-btn")
+                    suggestion_3 = gr.Button("Calculate a change", elem_classes="suggestion-btn")
 
             chatbot = gr.Chatbot(
                 value=[],
@@ -1199,9 +1151,7 @@ def build_interface() -> gr.Blocks:
                 ):
                     metadata_output = gr.Markdown(value=EMPTY_METADATA)
 
-        with gr.Column(
-            visible=False, elem_id="documents-view", elem_classes="ledger-view"
-        ) as documents_view:
+        with gr.Column(visible=False, elem_id="documents-view", elem_classes="ledger-view") as documents_view:
             gr.HTML("""
                 <div class="view-heading">
                     <div><h1>Documents</h1><p>The source behind every answer.</p></div>
@@ -1297,9 +1247,7 @@ def build_interface() -> gr.Blocks:
                 </div>
             """)
 
-        with gr.Column(
-            visible=False, elem_id="dashboard-view", elem_classes="ledger-view"
-        ) as dashboard_view:
+        with gr.Column(visible=False, elem_id="dashboard-view", elem_classes="ledger-view") as dashboard_view:
             gr.HTML("""
                 <div class="view-heading">
                     <div><h1>Dashboard</h1><p>Service health and recent research activity.</p></div>

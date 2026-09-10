@@ -1,10 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV HF_HOME=/root/.cache/huggingface
 
 # --------------------------------------------------
 # PyTorch with CUDA 12.8
@@ -17,25 +18,13 @@ RUN pip install --no-cache-dir \
 # Python dependencies
 # --------------------------------------------------
 COPY services/retrieval_api/requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
-
-# --------------------------------------------------
-# Local Hugging Face models
-# --------------------------------------------------
-COPY models/huggingface/ /models/huggingface/
 
 # --------------------------------------------------
 # Application code
 # --------------------------------------------------
 COPY shared/ /app/shared/
 COPY services/retrieval_api/src/ /app/src/
-
-# --------------------------------------------------
-# Offline Hugging Face mode
-# --------------------------------------------------
-ENV HF_HUB_OFFLINE=1
-ENV TRANSFORMERS_OFFLINE=1
 
 EXPOSE 8003
 

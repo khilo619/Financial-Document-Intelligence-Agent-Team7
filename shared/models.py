@@ -31,9 +31,7 @@ class Citation(BaseModel):
         ...,
         description="Unique filename or UID of source document (e.g., 'doc_017.pdf' or 'cts-corporation_2019.pdf')",
     )
-    page: int = Field(
-        ..., ge=0, description="0-indexed or 1-indexed page number in the source PDF"
-    )
+    page: int = Field(..., ge=0, description="0-indexed or 1-indexed page number in the source PDF")
     section: str = Field(
         default="",
         description="Optional heading or section name (e.g., 'Income Statement', 'Note 4')",
@@ -47,9 +45,7 @@ class Citation(BaseModel):
 class DirectParams(BaseModel):
     """Parameters for 'direct' fact lookup answers."""
 
-    value: str | float | int = Field(
-        ..., description="The direct factual value extracted from the document"
-    )
+    value: str | float | int = Field(..., description="The direct factual value extracted from the document")
 
 
 class CalculatedParams(BaseModel):
@@ -90,9 +86,7 @@ class StrictAnswer(BaseModel):
     """
 
     answer_type: Literal["direct", "calculated", "multi_span", "insufficient_evidence"]
-    evidence: list[Citation] = Field(
-        default_factory=list, description="Grounding evidence citations"
-    )
+    evidence: list[Citation] = Field(default_factory=list, description="Grounding evidence citations")
     params: dict[str, Any] = Field(..., description="Type-specific answer parameters")
 
     @model_validator(mode="after")
@@ -110,19 +104,13 @@ class StrictAnswer(BaseModel):
             calc = CalculatedParams(**params)
             # Ensure value is actually a numeric float or int
             if not isinstance(calc.value, (int, float)):
-                raise ValueError(
-                    f"Calculated answer value must be a number, got {type(calc.value).__name__}."
-                )
+                raise ValueError(f"Calculated answer value must be a number, got {type(calc.value).__name__}.")
             # Reject non-finite values outright
             if not math.isfinite(calc.value):
-                raise ValueError(
-                    f"Calculated answer value must be finite, got {calc.value}."
-                )
+                raise ValueError(f"Calculated answer value must be finite, got {calc.value}.")
 
             if len(evidence) < 1:
-                raise ValueError(
-                    "Calculated answer requires evidence citations for the operands."
-                )
+                raise ValueError("Calculated answer requires evidence citations for the operands.")
             # Recompute the formula independently and compare to the reported value
             try:
                 SAFE_FUNCTIONS = {
@@ -132,49 +120,36 @@ class StrictAnswer(BaseModel):
                     "max": max,
                     "pow": pow,
                 }
-                recomputed = simpleeval.simple_eval(
-                    calc.formula, functions=SAFE_FUNCTIONS
-                )
+                recomputed = simpleeval.simple_eval(calc.formula, functions=SAFE_FUNCTIONS)
             except (
                 simpleeval.InvalidExpression,
                 SyntaxError,
                 ZeroDivisionError,
                 TypeError,
             ) as exc:
-                raise ValueError(
-                    f"Formula '{calc.formula}' could not be evaluated: {exc}"
-                )
+                raise ValueError(f"Formula '{calc.formula}' could not be evaluated: {exc}")
 
             if not math.isfinite(recomputed):
-                raise ValueError(
-                    f"Formula '{calc.formula}' evaluates to a non-finite value."
-                )
+                raise ValueError(f"Formula '{calc.formula}' evaluates to a non-finite value.")
 
             if not math.isclose(recomputed, calc.value, rel_tol=1e-3, abs_tol=1e-6):
                 raise ValueError(
-                    f"Reported value {calc.value} does not match formula result "
-                    f"{recomputed} for '{calc.formula}'."
+                    f"Reported value {calc.value} does not match formula result {recomputed} for '{calc.formula}'."
                 )
 
         elif a_type == AnswerType.MULTI_SPAN.value:
             ms = MultiSpanParams(**params)
             if len(ms.values) < 2:
-                raise ValueError(
-                    "Multi-span answer must contain at least 2 distinct values."
-                )
+                raise ValueError("Multi-span answer must contain at least 2 distinct values.")
             if len(evidence) < 1:
-                raise ValueError(
-                    "Multi-span answer requires at least 1 evidence citation."
-                )
+                raise ValueError("Multi-span answer requires at least 1 evidence citation.")
 
         elif a_type == AnswerType.INSUFFICIENT_EVIDENCE.value:
             InsufficientParams(**params)
             # evidence can be empty list for unanswerable questions
 
         else:
-            raise ValueError(
-                f"Unknown answer_type '{a_type}'. Must be one of {list(AnswerType)}"
-            )
+            raise ValueError(f"Unknown answer_type '{a_type}'. Must be one of {list(AnswerType)}")
 
         return self
 
@@ -194,22 +169,12 @@ class DocumentBlock(BaseModel):
     """
 
     block_id: str = Field(..., description="Unique UUID for this text or table block")
-    document_id: str = Field(
-        ..., description="Source PDF filename or document identifier"
-    )
+    document_id: str = Field(..., description="Source PDF filename or document identifier")
     page: int = Field(..., ge=0, description="Source page number")
-    content_type: Literal["text", "table", "header", "footnote"] = Field(
-        ..., description="Semantic type of block"
-    )
-    markdown_content: str = Field(
-        ..., description="Text content formatted in Markdown (tables as Markdown grids)"
-    )
-    table_rows: list[list[str]] | None = Field(
-        default=None, description="Raw 2D cell grid if content_type is table"
-    )
-    bbox: list[float] | None = Field(
-        default=None, description="Coordinates [x0, y0, x1, y1] on the PDF page"
-    )
+    content_type: Literal["text", "table", "header", "footnote"] = Field(..., description="Semantic type of block")
+    markdown_content: str = Field(..., description="Text content formatted in Markdown (tables as Markdown grids)")
+    table_rows: list[list[str]] | None = Field(default=None, description="Raw 2D cell grid if content_type is table")
+    bbox: list[float] | None = Field(default=None, description="Coordinates [x0, y0, x1, y1] on the PDF page")
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata (scale: thousand, year: 2019, etc.)",
@@ -217,12 +182,8 @@ class DocumentBlock(BaseModel):
 
 
 class ProcessPdfRequest(BaseModel):
-    pdf_path: str = Field(
-        ..., description="Absolute path or filename of raw PDF to process"
-    )
-    document_id: str | None = Field(
-        default=None, description="Optional custom document id"
-    )
+    pdf_path: str = Field(..., description="Absolute path or filename of raw PDF to process")
+    document_id: str | None = Field(default=None, description="Optional custom document id")
 
 
 class ProcessPdfResponse(BaseModel):
@@ -265,16 +226,12 @@ class SearchQueryRequest(BaseModel):
         le=100,
         description="Over-retrieval pool size for hybrid fusion",
     )
-    top_n: int = Field(
-        default=5, ge=1, le=20, description="Final number of reranked results to return"
-    )
+    top_n: int = Field(default=5, ge=1, le=20, description="Final number of reranked results to return")
     filters: dict[str, Any] | None = Field(
         default=None,
         description="Metadata filters (e.g., {'document_id': 'doc_017.pdf'})",
     )
-    use_reranking: bool = Field(
-        default=True, description="Whether to apply cross-encoder reranker"
-    )
+    use_reranking: bool = Field(default=True, description="Whether to apply cross-encoder reranker")
 
 
 class SearchQueryResponse(BaseModel):
@@ -291,12 +248,8 @@ class SearchQueryResponse(BaseModel):
 
 class AskRequest(BaseModel):
     query: str = Field(..., min_length=1, description="User or benchmark question")
-    document_id: str | None = Field(
-        default=None, description="Optional scope filter (None = corpus-wide)"
-    )
-    session_id: str | None = Field(
-        default=None, description="Conversation session ID for tracing"
-    )
+    document_id: str | None = Field(default=None, description="Optional scope filter (None = corpus-wide)")
+    session_id: str | None = Field(default=None, description="Conversation session ID for tracing")
 
 
 class AskResponse(BaseModel):
@@ -312,9 +265,7 @@ class AskResponse(BaseModel):
 
 
 class ValidationRequest(BaseModel):
-    answer: dict[str, Any] = Field(
-        ..., description="Raw dictionary representation of candidate answer"
-    )
+    answer: dict[str, Any] = Field(..., description="Raw dictionary representation of candidate answer")
 
 
 class ValidationResponse(BaseModel):

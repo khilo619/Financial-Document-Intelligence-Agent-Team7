@@ -83,9 +83,7 @@ def extract_one_pdf(
             chosen = matches[0]
         else:
             if pdf_index >= len(pdf_names):
-                raise IndexError(
-                    f"pdf_index={pdf_index} out of range — zip has {len(pdf_names)} PDFs."
-                )
+                raise IndexError(f"pdf_index={pdf_index} out of range — zip has {len(pdf_names)} PDFs.")
             chosen = pdf_names[pdf_index]
 
         print(f"Extracting: {chosen}")
@@ -124,19 +122,11 @@ def save_blocks_as_json(blocks, doc_id: str, out_dir: Path | None = None) -> Pat
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Process TAT-DQA PDFs into DocumentBlocks"
-    )
+    parser = argparse.ArgumentParser(description="Process TAT-DQA PDFs into DocumentBlocks")
     parser.add_argument("--start-idx", type=int, default=0, help="Starting PDF index")
-    parser.add_argument(
-        "--count", type=int, default=1, help="Number of PDFs to process"
-    )
-    parser.add_argument(
-        "--target-name", type=str, default=None, help="Target PDF filename"
-    )
-    parser.add_argument(
-        "--use-api", action="store_true", help="Send request to FastAPI service"
-    )
+    parser.add_argument("--count", type=int, default=1, help="Number of PDFs to process")
+    parser.add_argument("--target-name", type=str, default=None, help="Target PDF filename")
+    parser.add_argument("--use-api", action="store_true", help="Send request to FastAPI service")
     args = parser.parse_args()
 
     zip_path = ensure_zip_downloaded(TAT_DQA_DIR, ZIP_FILENAME)
@@ -157,9 +147,7 @@ def main():
 
     for idx in range(args.start_idx, end_idx):
         print(f"\n--- Processing PDF #{idx + 1} / {end_idx} ---")
-        pdf_path = extract_one_pdf(
-            zip_path, EXTRACT_DIR, target_name=args.target_name, pdf_index=idx
-        )
+        pdf_path = extract_one_pdf(zip_path, EXTRACT_DIR, target_name=args.target_name, pdf_index=idx)
         doc_id = pdf_path.stem
 
         if args.use_api:

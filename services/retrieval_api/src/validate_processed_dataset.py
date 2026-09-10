@@ -4,7 +4,6 @@ import os
 
 from shared.models import DocumentBlock
 
-
 DATA_DIR = "/data/processed_json"
 
 
@@ -29,10 +28,7 @@ def main():
             if isinstance(data, list):
                 blocks = data
             elif isinstance(data, dict):
-                blocks = data.get(
-                    "blocks",
-                    data.get("document_blocks", [])
-                )
+                blocks = data.get("blocks", data.get("document_blocks", []))
             else:
                 raise ValueError("Unexpected JSON structure")
 
@@ -43,11 +39,7 @@ def main():
             total_blocks += len(blocks)
 
             if index % 100 == 0:
-                print(
-                    f"Progress: {index}/{len(files)} | "
-                    f"Valid: {valid_files} | "
-                    f"Blocks: {total_blocks}"
-                )
+                print(f"Progress: {index}/{len(files)} | Valid: {valid_files} | Blocks: {total_blocks}")
 
         except Exception as exc:
             failed_files.append((path, str(exc)))

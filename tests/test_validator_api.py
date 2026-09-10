@@ -102,9 +102,7 @@ INVALID_CASES = [
 
 
 @pytest.mark.parametrize("a_type,payload,expected_snippet", INVALID_CASES)
-def test_validate_answer_invalid_all_types(
-    client, caplog, a_type, payload, expected_snippet
-):
+def test_validate_answer_invalid_all_types(client, caplog, a_type, payload, expected_snippet):
     with caplog.at_level(logging.ERROR, logger="AnswerValidator"):
         resp = client.post("/validate_answer", json={"answer": payload})
     body = resp.json()

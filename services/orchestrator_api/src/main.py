@@ -66,9 +66,7 @@ VALIDATOR_URL = f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate
 
 DOC_PROCESSOR_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/process_pdf"
 
-DOC_PROCESSOR_UPLOAD_URL = (
-    f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/upload_pdf"
-)
+DOC_PROCESSOR_UPLOAD_URL = f"{get_service_url(ServiceName.DOC_PROCESSOR.value)}/upload_pdf"
 
 
 # =============================================================================
@@ -345,9 +343,7 @@ def _document_processor_error(
 
     raise HTTPException(
         status_code=502,
-        detail=(
-            backend_detail or ("Document Processor failed while processing the PDF.")
-        ),
+        detail=(backend_detail or ("Document Processor failed while processing the PDF.")),
     )
 
 
@@ -401,9 +397,7 @@ async def services_health():
 
     services = {service_name: result for service_name, result in service_results}
 
-    healthy_count = sum(
-        1 for result in services.values() if result["status"] == "healthy"
-    )
+    healthy_count = sum(1 for result in services.values() if result["status"] == "healthy")
 
     total_count = len(services)
 
@@ -453,14 +447,11 @@ def recent_queries(
 
     records = list(RECENT_QUERIES)[:safe_limit]
 
-    successful_queries = [
-        item for item in RECENT_QUERIES if item["status"] == "success"
-    ]
+    successful_queries = [item for item in RECENT_QUERIES if item["status"] == "success"]
 
     if successful_queries:
         average_latency_ms = round(
-            sum(item["latency_ms"] for item in successful_queries)
-            / len(successful_queries),
+            sum(item["latency_ms"] for item in successful_queries) / len(successful_queries),
             2,
         )
 
@@ -903,9 +894,7 @@ async def ask_question(
 
         _raise_and_record(
             status_code=503,
-            detail=(
-                "Answer validator is unavailable. The answer cannot safely be returned."
-            ),
+            detail=("Answer validator is unavailable. The answer cannot safely be returned."),
             request=request,
             trace_id=trace_id,
             start_time=start_time,

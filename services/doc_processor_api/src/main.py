@@ -27,9 +27,7 @@ except ImportError:
         process_pdfs_to_custom_schema,
     )
 
-logging.basicConfig(
-    level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
 logger = logging.getLogger("DocProcessorAPI")
 
 
@@ -41,9 +39,7 @@ async def lifespan(app: FastAPI):
         app.state.doc_converter = get_doc_converter()
         logger.info("Docling model weights successfully loaded into memory!")
     except (RuntimeError, ImportError, ModuleNotFoundError, OSError, ValueError) as e:
-        logger.warning(
-            "Docling DocumentConverter deferred (offline/CI environment): %s", e
-        )
+        logger.warning("Docling DocumentConverter deferred (offline/CI environment): %s", e)
         app.state.doc_converter = None
 
     yield
@@ -92,9 +88,7 @@ def process_pdf(request: ProcessPdfRequest, raw_request: Request):
         )
     except Exception as e:
         logger.exception("Failed to process PDF %s", doc_id)
-        raise HTTPException(
-            status_code=500, detail=f"PDF processing failed: {e}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"PDF processing failed: {e}") from e
 
     total_pages = max((b.page for b in blocks), default=1) if blocks else 1
     elapsed = round(time.time() - start_time, 3)
@@ -118,15 +112,11 @@ async def upload_pdf(
     Accepts a multipart file upload of a PDF and extracts layout blocks.
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=400, detail="Uploaded file must be a valid .pdf document"
-        )
+        raise HTTPException(status_code=400, detail="Uploaded file must be a valid .pdf document")
 
     clean_doc_id = document_id or Path(file.filename).stem
     start_time = time.time()
-    logger.info(
-        "Processing uploaded PDF: %s (filename: %s)", clean_doc_id, file.filename
-    )
+    logger.info("Processing uploaded PDF: %s (filename: %s)", clean_doc_id, file.filename)
 
     doc_converter = getattr(raw_request.app.state, "doc_converter", None)
     if doc_converter is None:
@@ -144,9 +134,7 @@ async def upload_pdf(
         )
     except Exception as e:
         logger.exception("Failed to process uploaded PDF %s", clean_doc_id)
-        raise HTTPException(
-            status_code=500, detail=f"PDF processing failed: {e}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"PDF processing failed: {e}") from e
     finally:
         tmp_path.unlink(missing_ok=True)
 

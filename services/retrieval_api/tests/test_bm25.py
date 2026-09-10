@@ -6,26 +6,17 @@ def test_bm25_search():
         {
             "chunk_id": "test-cts-2019-001",
             "document_id": "cts-corporation_2019.pdf",
-            "content": (
-                "| Category | 2019 | 2018 |\n"
-                "| Finished Goods | 9,447 | 8,912 |"
-            ),
+            "content": ("| Category | 2019 | 2018 |\n| Finished Goods | 9,447 | 8,912 |"),
         },
         {
             "chunk_id": "test-jabil-2019-001",
             "document_id": "jabil-circuit-inc_2019.pdf",
-            "content": (
-                "| Category | 2019 | 2018 |\n"
-                "| Finished Goods | 314,258 | 289,114 |"
-            ),
+            "content": ("| Category | 2019 | 2018 |\n| Finished Goods | 314,258 | 289,114 |"),
         },
         {
             "chunk_id": "test-cts-revenue-2019",
             "document_id": "cts-corporation_2019.pdf",
-            "content": (
-                "| Revenue | 2019 | 2018 |\n"
-                "| Net Sales | 1,000 | 950 |"
-            ),
+            "content": ("| Revenue | 2019 | 2018 |\n| Net Sales | 1,000 | 950 |"),
         },
     ]
 
@@ -39,15 +30,13 @@ def test_bm25_search():
 
     assert len(results) > 0
 
-    result_ids = {
-    result["chunk_id"]
-    for result in results
-    }
+    result_ids = {result["chunk_id"] for result in results}
 
     assert {
-      "test-cts-2019-001",
-      "test-jabil-2019-001",
+        "test-cts-2019-001",
+        "test-jabil-2019-001",
     }.issubset(result_ids)
+
 
 def test_bm25_filter():
     documents = [

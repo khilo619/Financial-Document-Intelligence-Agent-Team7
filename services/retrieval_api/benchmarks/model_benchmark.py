@@ -25,9 +25,8 @@ import time
 from statistics import mean, median, stdev
 
 import torch
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # ============================================================
 # Configuration
@@ -49,22 +48,10 @@ TEST_DOCUMENTS = [
         "The company reported revenue growth during the fiscal year "
         "and operating income increased compared with the previous year."
     ),
-    (
-        "Finished goods inventory decreased slightly during the year "
-        "because of improved inventory management."
-    ),
-    (
-        "The company generated strong cash flow from operating activities "
-        "despite changes in working capital."
-    ),
-    (
-        "Total assets increased as the company invested in property "
-        "and equipment during the reporting period."
-    ),
-    (
-        "The annual report discusses revenue, operating expenses, "
-        "net income, and cash flow for the fiscal year."
-    ),
+    ("Finished goods inventory decreased slightly during the year because of improved inventory management."),
+    ("The company generated strong cash flow from operating activities despite changes in working capital."),
+    ("Total assets increased as the company invested in property and equipment during the reporting period."),
+    ("The annual report discusses revenue, operating expenses, net income, and cash flow for the fiscal year."),
 ]
 
 
@@ -95,6 +82,7 @@ RERANKER_MODELS = {
 # Utility functions
 # ============================================================
 
+
 def cleanup():
     """
     Release Python and GPU memory between model tests.
@@ -113,8 +101,8 @@ def get_gpu_memory_mb():
     if not torch.cuda.is_available():
         return 0.0, 0.0
 
-    allocated = torch.cuda.memory_allocated() / (1024 ** 2)
-    reserved = torch.cuda.memory_reserved() / (1024 ** 2)
+    allocated = torch.cuda.memory_allocated() / (1024**2)
+    reserved = torch.cuda.memory_reserved() / (1024**2)
 
     return allocated, reserved
 
@@ -149,6 +137,7 @@ def calculate_stats(times):
 # ============================================================
 # Embedding Benchmark
 # ============================================================
+
 
 def benchmark_embedding_model(model_name, model_id, device):
     """
@@ -194,14 +183,8 @@ def benchmark_embedding_model(model_name, model_id, device):
     allocated_after_load, reserved_after_load = get_gpu_memory_mb()
 
     if device == "cuda":
-        print(
-            f"VRAM allocated after load : "
-            f"{allocated_after_load:.2f} MB"
-        )
-        print(
-            f"VRAM reserved after load  : "
-            f"{reserved_after_load:.2f} MB"
-        )
+        print(f"VRAM allocated after load : {allocated_after_load:.2f} MB")
+        print(f"VRAM reserved after load  : {reserved_after_load:.2f} MB")
 
     # --------------------------------------------------------
     # Warm-up
@@ -235,7 +218,6 @@ def benchmark_embedding_model(model_name, model_id, device):
     times = []
 
     for i in range(BENCHMARK_RUNS):
-
         synchronize_if_cuda(device)
 
         start = time.perf_counter()
@@ -256,19 +238,11 @@ def benchmark_embedding_model(model_name, model_id, device):
     # Memory after inference
     # --------------------------------------------------------
 
-    allocated_after_inference, reserved_after_inference = (
-        get_gpu_memory_mb()
-    )
+    allocated_after_inference, reserved_after_inference = get_gpu_memory_mb()
 
     if device == "cuda":
-        print(
-            f"\nVRAM allocated after inference : "
-            f"{allocated_after_inference:.2f} MB"
-        )
-        print(
-            f"VRAM reserved after inference  : "
-            f"{reserved_after_inference:.2f} MB"
-        )
+        print(f"\nVRAM allocated after inference : {allocated_after_inference:.2f} MB")
+        print(f"VRAM reserved after inference  : {reserved_after_inference:.2f} MB")
 
     # --------------------------------------------------------
     # Results
@@ -308,6 +282,7 @@ def benchmark_embedding_model(model_name, model_id, device):
 # Reranker Benchmark
 # ============================================================
 
+
 def benchmark_reranker_model(model_name, model_id, device):
     """
     Benchmark one cross-encoder reranker on one device.
@@ -346,10 +321,7 @@ def benchmark_reranker_model(model_name, model_id, device):
     # Prepare query-document pairs
     # --------------------------------------------------------
 
-    pairs = [
-        (TEST_QUERY, document)
-        for document in TEST_DOCUMENTS
-    ]
+    pairs = [(TEST_QUERY, document) for document in TEST_DOCUMENTS]
 
     print(f"Documents per request: {len(pairs)}")
 
@@ -360,14 +332,8 @@ def benchmark_reranker_model(model_name, model_id, device):
     allocated_after_load, reserved_after_load = get_gpu_memory_mb()
 
     if device == "cuda":
-        print(
-            f"VRAM allocated after load : "
-            f"{allocated_after_load:.2f} MB"
-        )
-        print(
-            f"VRAM reserved after load  : "
-            f"{reserved_after_load:.2f} MB"
-        )
+        print(f"VRAM allocated after load : {allocated_after_load:.2f} MB")
+        print(f"VRAM reserved after load  : {reserved_after_load:.2f} MB")
 
     # --------------------------------------------------------
     # Warm-up
@@ -400,7 +366,6 @@ def benchmark_reranker_model(model_name, model_id, device):
     times = []
 
     for i in range(BENCHMARK_RUNS):
-
         synchronize_if_cuda(device)
 
         start = time.perf_counter()
@@ -421,19 +386,11 @@ def benchmark_reranker_model(model_name, model_id, device):
     # Memory
     # --------------------------------------------------------
 
-    allocated_after_inference, reserved_after_inference = (
-        get_gpu_memory_mb()
-    )
+    allocated_after_inference, reserved_after_inference = get_gpu_memory_mb()
 
     if device == "cuda":
-        print(
-            f"\nVRAM allocated after inference : "
-            f"{allocated_after_inference:.2f} MB"
-        )
-        print(
-            f"VRAM reserved after inference  : "
-            f"{reserved_after_inference:.2f} MB"
-        )
+        print(f"\nVRAM allocated after inference : {allocated_after_inference:.2f} MB")
+        print(f"VRAM reserved after inference  : {reserved_after_inference:.2f} MB")
 
     # --------------------------------------------------------
     # Results
@@ -472,6 +429,7 @@ def benchmark_reranker_model(model_name, model_id, device):
 # Main
 # ============================================================
 
+
 def main():
 
     print("\n")
@@ -505,9 +463,7 @@ def main():
     # --------------------------------------------------------
 
     if torch.cuda.is_available():
-
         for model_name, model_id in EMBEDDING_MODELS.items():
-
             result = benchmark_embedding_model(
                 model_name=model_name,
                 model_id=model_id,
@@ -526,7 +482,6 @@ def main():
     print("#" * 80)
 
     for model_name, model_id in EMBEDDING_MODELS.items():
-
         result = benchmark_embedding_model(
             model_name=model_name,
             model_id=model_id,
@@ -549,9 +504,7 @@ def main():
     # --------------------------------------------------------
 
     if torch.cuda.is_available():
-
         for model_name, model_id in RERANKER_MODELS.items():
-
             result = benchmark_reranker_model(
                 model_name=model_name,
                 model_id=model_id,
@@ -570,7 +523,6 @@ def main():
     print("#" * 80)
 
     for model_name, model_id in RERANKER_MODELS.items():
-
         result = benchmark_reranker_model(
             model_name=model_name,
             model_id=model_id,
@@ -602,7 +554,6 @@ def main():
     print("-" * 100)
 
     for result in results:
-
         dimension = result.get("dimension", "-")
 
         print(
@@ -633,7 +584,7 @@ def main():
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
 
-        print(f"\nResults saved to:")
+        print("\nResults saved to:")
         print(output_path)
 
     except Exception as exc:

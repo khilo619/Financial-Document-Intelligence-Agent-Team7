@@ -1,6 +1,6 @@
 import os
-import torch
 
+import torch
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 
@@ -42,10 +42,7 @@ class Reranker:
         top_n: int = 5,
     ) -> list[dict]:
 
-        pairs = [
-            (query, result.get("content", ""))
-            for result in results
-        ]
+        pairs = [(query, result.get("content", "")) for result in results]
 
         scores = self.model.score(pairs)
 
