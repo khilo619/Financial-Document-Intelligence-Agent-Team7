@@ -14,16 +14,14 @@ from shared.config import (
 )
 from shared.models import StrictAnswer
 
+from .llm import get_llm
 from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
 
 ANSWER_VALIDATOR_URL = f"{get_service_url(ServiceName.ANSWER_VALIDATOR.value)}/validate_answer"
 
-llm = ChatOpenAI(
-    model=DEFAULT_LLM_MODEL,
-    temperature=DEFAULT_LLM_TEMPERATURE,
-)
+llm = get_llm()
 
 # adding tools
 llm_with_tools = llm.bind_tools(tools)

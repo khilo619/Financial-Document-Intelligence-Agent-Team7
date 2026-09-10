@@ -13,6 +13,7 @@ from shared.config import (
 )
 from shared.models import DecompositionResult
 
+from .llm import get_llm
 from .prompts import DECOMPOSE_PROMPT
 
 RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
@@ -26,10 +27,7 @@ RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
     description="Break a complex financial question into smaller sub-questions.",
 )
 def decompose_question(query: str) -> list[str]:
-    decomposition_llm = ChatOpenAI(
-        model=DEFAULT_LLM_MODEL,
-        temperature=DEFAULT_LLM_TEMPERATURE,
-    ).with_structured_output(DecompositionResult)
+    decomposition_llm = get_llm().with_structured_output(DecompositionResult)
 
     result = decomposition_llm.invoke(
         [

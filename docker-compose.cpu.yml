@@ -1,0 +1,21 @@
+version: "3.8"
+
+# ==============================================================================
+# PROJECT LEDGER: CPU Override for Local Testing on Non-GPU Machines
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+# ==============================================================================
+
+services:
+  doc-processor-api:
+    deploy:
+      resources:
+        reservations:
+          devices: []
+
+  retrieval-api:
+    deploy:
+      resources:
+        reservations:
+          devices: []
