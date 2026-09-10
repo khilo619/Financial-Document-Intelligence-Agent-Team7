@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Inspect Modified Microservice Paths
         uses: dorny/paths-filter@v3
