@@ -6,3 +6,4 @@ sentence-transformers
 rank-bm25
 langchain-huggingface
 langchain-community
+simpleeval>=0.9.13

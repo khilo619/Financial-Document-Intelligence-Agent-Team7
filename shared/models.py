@@ -7,7 +7,10 @@ import math
 from enum import Enum
 from typing import Any, Literal
 
-import simpleeval
+try:
+    import simpleeval
+except ImportError:
+    simpleeval = None
 from pydantic import BaseModel, Field, model_validator
 
 # ==============================================================================
@@ -112,6 +115,10 @@ class StrictAnswer(BaseModel):
             if len(evidence) < 1:
                 raise ValueError("Calculated answer requires evidence citations for the operands.")
             # Recompute the formula independently and compare to the reported value
+            if simpleeval is None:
+                raise ImportError(
+                    "simpleeval is required to validate calculated answers. Install it via 'pip install simpleeval'."
+                )
             try:
                 SAFE_FUNCTIONS = {
                     "abs": abs,
