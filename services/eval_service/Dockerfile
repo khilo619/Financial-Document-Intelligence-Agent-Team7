@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared/ /app/shared/
 COPY services/eval_service/src/ /app/src/
+COPY questions_setA_practice.json /app/questions_setA_practice.json
 
 EXPOSE 8006
 
