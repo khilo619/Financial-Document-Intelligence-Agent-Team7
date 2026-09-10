@@ -162,7 +162,24 @@ class LangfuseReporter:
             return f"mock_trace_{question_id}"
 
         try:
-            if hasattr(self.client, "trace"):
+            if hasattr(self.client, "start_observation"):
+                span = self.client.start_observation(
+                    name="ledger_eval_item",
+                    as_type="chain",
+                    input={"question_id": question_id, "question": question_text},
+                    output={"prediction": str(prediction_answer)},
+                    metadata=meta,
+                )
+                trace_id = getattr(span, "trace_id", f"trace_{question_id}")
+                for score_name, score_val in scores.items():
+                    span.score(
+                        name=score_name,
+                        value=float(score_val),
+                        comment=f"Ground truth: {ground_truth_answer}",
+                    )
+                span.end()
+                return trace_id
+            elif hasattr(self.client, "trace"):
                 trace = self.client.trace(
                     name="ledger_eval_item",
                     session_id=meta.get("session_id", "eval_practice_run"),

@@ -13,7 +13,7 @@ from shared.config import (
 )
 from shared.models import DecompositionResult
 
-from .llm import get_llm
+from .llm import get_llm, invoke_with_retry
 from .prompts import DECOMPOSE_PROMPT
 
 RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
@@ -29,11 +29,12 @@ RETRIEVAL_API_URL = f"{get_service_url(ServiceName.RETRIEVAL.value)}/search"
 def decompose_question(query: str) -> list[str]:
     decomposition_llm = get_llm().with_structured_output(DecompositionResult)
 
-    result = decomposition_llm.invoke(
+    result = invoke_with_retry(
+        decomposition_llm,
         [
             {"role": "system", "content": DECOMPOSE_PROMPT},
             {"role": "user", "content": query},
-        ]
+        ],
     )
 
     return result.sub_questions

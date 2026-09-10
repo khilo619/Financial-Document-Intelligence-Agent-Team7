@@ -14,7 +14,7 @@ from shared.config import (
 )
 from shared.models import StrictAnswer
 
-from .llm import get_llm
+from .llm import get_llm, invoke_with_retry
 from .prompts import FINALIZE_PROMPT, REPAIR_PROMPT, SYSTEM_PROMPT
 from .state import AgentState
 from .tools import tools
@@ -59,7 +59,7 @@ def reason(state: AgentState):
         *state.get("messages", []),
     ]
 
-    response = llm_with_tools.invoke(messages)
+    response = invoke_with_retry(llm_with_tools, messages)
 
     return {
         "messages": [response],
@@ -146,7 +146,7 @@ def finalize(state: AgentState):
         *state.get("messages", []),
     ]
 
-    answer = structured_llm.invoke(messages)
+    answer = invoke_with_retry(structured_llm, messages)
 
     return {
         "answer": answer,
@@ -196,7 +196,8 @@ def repair(state: AgentState):
         evidence=state.get("evidence", []),
     )
 
-    repaired_answer = structured_llm.invoke(
+    repaired_answer = invoke_with_retry(
+        structured_llm,
         [
             {
                 "role": "system",
@@ -206,7 +207,7 @@ def repair(state: AgentState):
                 "role": "user",
                 "content": repair_prompt,
             },
-        ]
+        ],
     )
 
     return {"answer": repaired_answer}
