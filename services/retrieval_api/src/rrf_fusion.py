@@ -26,16 +26,13 @@ class RRFFusion:
         for source_index, result_list in enumerate(result_lists):
             for rank, result in enumerate(result_list, start=1):
                 chunk_key = (
-                    result["document_id"],
-                    result["chunk_id"],
+                    result.get("document_id", ""),
+                    result.get("chunk_id", ""),
                 )
 
                 score = 1 / (self.k + rank)
 
-                rrf_scores[chunk_key] = (
-                    rrf_scores.get(chunk_key, 0.0)
-                    + score
-                )
+                rrf_scores[chunk_key] = rrf_scores.get(chunk_key, 0.0) + score
 
                 if chunk_key not in documents:
                     documents[chunk_key] = result.copy()
