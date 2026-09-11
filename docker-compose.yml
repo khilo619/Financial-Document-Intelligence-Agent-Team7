@@ -195,6 +195,7 @@ services:
       - ./shared:/app/shared:ro
       # Mount Zeina's processed output so Retrieval can index it.
       - ./data/tat_dqa:/data/tat_dqa:ro
+      - ./data/processed_json:/data/processed_json
       # Persistent cache for Hugging Face models across runs
       - huggingface_cache:/root/.cache/huggingface
 

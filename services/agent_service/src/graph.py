@@ -128,7 +128,7 @@ def route_after_tools(state: AgentState):
 # evidence nood
 def collect_evidence(state: AgentState):
     evidence = list(state.get("evidence", []))
-    seen_blocks = {(e.get("document_id"), e.get("page"), e.get("block_id")) for e in evidence if isinstance(e, dict)}
+    seen_blocks = {(e.get("document_id"), e.get("page"), e.get("chunk_id")) for e in evidence if isinstance(e, dict)}
 
     tool_messages = []
 
@@ -157,7 +157,7 @@ def collect_evidence(state: AgentState):
             if isinstance(results, list):
                 for item in results:
                     if isinstance(item, dict):
-                        key = (item.get("document_id"), item.get("page"), item.get("block_id"))
+                        key = (item.get("document_id"), item.get("page"), item.get("chunk_id"))
                         if key not in seen_blocks:
                             seen_blocks.add(key)
                             evidence.append(item)

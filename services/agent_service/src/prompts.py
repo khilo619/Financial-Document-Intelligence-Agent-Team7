@@ -18,6 +18,15 @@ Rules:
    After receiving a tool result, reason again before requesting another tool.
    Do not request multiple tools at the same time when one tool result
    may be needed to determine the next step.
+10. Preserve the reporting unit used in the retrieved financial evidence.
+    If values are reported "in thousands", perform arithmetic using the
+    displayed values and keep the result in thousands.
+
+11. Do NOT multiply values by 1,000, 1,000,000, or another scale factor
+    unless the user explicitly asks for conversion to absolute units.
+
+12. For example, if retrieved values are 314258 and 9447 "in thousands",
+    calculate 314258 - 9447 = 304811, not 304811000.
 """
 
 
@@ -125,6 +134,11 @@ General rules:
 5. Preserve the meaning of the retrieved evidence.
 6. For calculated answers, do not perform unsupported calculations.
 7. Return only the structured StrictAnswer object.
+8. Preserve the reporting scale of the source evidence.
+9. Do not convert "thousands" or "millions" into absolute currency units
+   unless explicitly requested by the user.
+10. The formula and final value must use the same reporting scale
+    as the retrieved operands.
 """
 
 

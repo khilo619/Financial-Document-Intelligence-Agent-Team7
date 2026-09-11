@@ -333,7 +333,7 @@ def query_ledger(
 
     try:
         with httpx.Client(
-            timeout=70.0,
+            timeout=210.0,
         ) as client:
             response = client.post(
                 ASK_URL,

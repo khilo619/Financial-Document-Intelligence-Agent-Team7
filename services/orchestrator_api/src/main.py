@@ -562,7 +562,7 @@ async def process_document(
 
     # Auto-index parsed blocks into Retrieval API
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             idx_resp = await client.post(
                 RETRIEVAL_INDEX_URL,
                 json={
@@ -825,7 +825,7 @@ async def ask_question(
     # =========================================================================
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             agent_response = await client.post(
                 AGENT_URL,
                 json=request.model_dump(),
